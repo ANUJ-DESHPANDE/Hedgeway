@@ -1,0 +1,8 @@
+# Replace the hostname with your own domain. Keep the upstream loopback-only.
+hedgeway.example.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:4100 {
+        flush_interval -1
+    }
+    # Do not log query strings: the Kite callback contains a one-time request token.
+}

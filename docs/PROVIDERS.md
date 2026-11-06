@@ -1,0 +1,29 @@
+# Provider research and integration choices
+
+Reviewed against official provider documentation on 6–7 November 2026. Prices, terms and endpoint availability can change.
+
+| Provider                                                                                                        | Decision                                                                                 | Account / data limitations                                                                                |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [Upstox Analytics Token](https://upstox.com/developer/api-documentation/analytics-token/)                       | Default market provider; exact instrument lookup, quotes, daily history and V3 WebSocket | Free read-only token, listed one-year validity; user account required; data APIs do not require static IP |
+| [Kite Connect](https://zerodha.com/products/api)                                                                | Holdings login/sync and optional market feed                                             | Free Personal portfolio access; current paid streaming/history plan ₹500/month; daily login expiry        |
+| [FYERS](https://support.fyers.in/portal/en/kb/articles/does-fyers-charge-any-subscription-fees-for-trading-api) | Researched alternative, not implemented                                                  | Official FAQ lists free historical/quote/market APIs for FYERS users                                      |
+| [Angel One SmartAPI](https://smartapi.angelone.in/faq)                                                          | Researched alternative, not implemented                                                  | Free APIs and history; account/app credentials and applicable limits                                      |
+| [Dhan](https://dhan.co/support/platforms/dhanhq-api/how-can-i-access-live-market-data-through-dhan/)            | Not selected for the free-data path                                                      | Official live-data subscription currently ₹499 plus taxes monthly                                         |
+| [Xflot](https://www.xflot.com/api-docs)                                                                         | Implemented IPO list/detail/outcome adapters                                             | Free public endpoint; attribution, disclaimer and one-minute polling limit; GMP unofficial                |
+| [ipos.markets](https://ipos.markets/api-docs)                                                                   | Evaluated as a subscription-data alternative, not implemented                            | Public category subscription API; coverage and maintenance require independent validation                 |
+| Economic Times / Moneycontrol RSS                                                                               | Implemented headline/excerpt adapters                                                    | Publisher availability and content terms apply; Moneycontrol returned 403 in this environment             |
+| [ValuePickr](https://forum.valuepickr.com/latest.rss)                                                           | Implemented forum RSS adapter                                                            | Community opinions, not verified reporting                                                                |
+| [Reddit](https://www.reddit.com/dev/api/)                                                                       | Implemented official OAuth adapter                                                       | Approved API application required; no unauthenticated bypass or full comment scraping                     |
+
+## Why two broker integrations?
+
+Portfolio custody and market-data delivery need not use the same provider. A user can keep Zerodha holdings while receiving entitled Upstox prices. Provider selection is explicit; the application does not silently replace failed live quotes with Yahoo, generated data or another broker's feed.
+
+## What the benchmark projects contributed
+
+- Ghostfolio: clear portfolio ownership and allocation views.
+- OpenBB: modular data providers and research workflows with visible provenance.
+- Portfolio Performance: distinction between acquisition-cost P&L and cash-flow-adjusted returns. Hedgeway does not label snapshot P&L as TWR or XIRR.
+- Freqtrade's look-ahead analysis: the importance of future-data independence; the tests mutate future observations and assert past outputs do not change.
+
+These are design references, not copied implementations. Hedgeway prioritizes a coherent, testable personal workflow over claiming every feature found in those projects.

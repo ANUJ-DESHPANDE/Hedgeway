@@ -1,0 +1,24 @@
+services:
+  hedgeway:
+    build: .
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4100:4100"
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      DATABASE_PATH: /app/data/hedgeway.sqlite
+    volumes:
+      - hedgeway-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    stop_grace_period: 20s
+volumes:
+  hedgeway-data:
