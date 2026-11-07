@@ -34,3 +34,15 @@ A small positive/negative word lexicon assigns a headline score; nearby negation
 ## IPO outcomes
 
 The outcome study displays the provider's sample size, directional hit rate and mean absolute percentage-point error. It does not recalculate statistics from incomplete data or assume the sample is unbiased. GMP is unofficial; uncertainty and disputed-source flags are retained.
+
+## Intraday setup scanner
+
+This is a deterministic checklist for the user's “below recent average, beginning to rebound” idea. It is separate from the daily strategy backtest and has no demonstrated predictive edge.
+
+Only completed 1-, 3- or 5-minute candles from the latest IST session enter the analysis. The recent mean uses the preceding `lookback` closes and excludes the current close. The default 20-bar window requires at least 26 same-session bars. The recent required bars must be contiguous. A completed bar older than the greater of 90 seconds and two bar durations makes the result stale.
+
+Default conditions require a close at least 0.15% below that mean, a rebound of at least 0.1% from the recent low, two consecutive higher closes and a higher last-bar low, volume at least 1.1 times the preceding-window average, and a mean that has fallen no more than 0.5% over five bars. A return to the mean must exceed estimated costs and fit the entered sizing limits. Thresholds are editable except the five-bar slope guard.
+
+ATR is the mean of the last 14 true ranges. VWAP uses typical candle price `(high + low + close) / 3`, weighted by available session volume; it is unavailable when volume is zero. It is a candle approximation, not tick-level VWAP. Volume and trend checks are descriptive filters, not probabilities.
+
+The illustrative plan uses the last completed close as entry, the prior-bar mean as target, and the recent low minus 0.25 ATR as stop. Round-trip costs approximate twice `entry × costBps / 10000` per share. Quantity is the smaller of the capital limit and the risk-budget limit, rounded down. The defaults ₹10,000 capital and ₹100 risk are editable calculation inputs, not account balances. Stops are hypothetical and do not guarantee execution or a maximum loss. Taxes, instrument-specific charges, spread, slippage and fill risk can differ substantially from the approximation.

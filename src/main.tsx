@@ -1,5 +1,7 @@
 import {
   AlertTriangle,
+  Sparkles,
+  ScanLine,
   ArrowRight,
   ArrowUpRight,
   BookOpen,
@@ -36,6 +38,8 @@ import ImportModal from "./pages/ImportModal";
 import "./styles.css";
 import type { Article, IPO, Mode, Portfolio, Quote } from "./types";
 import { Modal } from "./ui";
+const AIDesk = lazy(() => import("./pages/AIDesk"));
+const SetupScanner = lazy(() => import("./pages/SetupScanner"));
 const Overview = lazy(() => import("./pages/Overview"));
 const Markets = lazy(() => import("./pages/Markets"));
 const PortfolioView = lazy(() => import("./pages/PortfolioView"));
@@ -48,8 +52,10 @@ const Integrations = lazy(() => import("./pages/Integrations"));
 const pages: { name: Page; icon: typeof Wallet; group: string }[] = [
   { name: "Overview", icon: LayoutDashboard, group: "WORKSPACE" },
   { name: "Markets", icon: ChartNoAxesCombined, group: "" },
+  { name: "Setup scanner", icon: ScanLine, group: "" },
   { name: "Portfolio", icon: Wallet, group: "" },
   { name: "Research", icon: Newspaper, group: "DISCOVER" },
+  { name: "AI desk", icon: Sparkles, group: "" },
   { name: "IPOs", icon: Rocket, group: "" },
   { name: "Strategy lab", icon: FlaskConical, group: "" },
   { name: "Journal", icon: BookOpen, group: "PERSONAL" },
@@ -57,6 +63,10 @@ const pages: { name: Page; icon: typeof Wallet; group: string }[] = [
 ];
 const descriptions: Record<Page, string> = {
   Overview: "Your portfolio, market watch and latest research in one place.",
+  "AI desk":
+    "Discuss the evidence, challenge the story, and see what remains unknown.",
+  "Setup scanner":
+    "Your intraday dip-and-rebound rules, checked against real candles.",
   Markets: "Follow Indian equities and ETFs with source-aware prices.",
   Portfolio: "Understand what you own, and where your risk lives.",
   Research: "Follow the story. Keep the source. Form your own view.",
@@ -78,6 +88,10 @@ function App() {
       pages.find((p) => p.name === decodeURIComponent(location.hash.slice(1)))
         ?.name || "Overview",
   );
+  const [aiSeed, setAISeed] = useState<{
+    question: string;
+    symbol: string;
+  } | null>(null);
   const [mode, setMode] = useState<Mode>("workspace");
   const [theme, setTheme] = useState(
     () => localStorage.getItem("hedgeway-theme") || "dark",
@@ -453,6 +467,7 @@ function App() {
             "Markets",
             "Portfolio",
             "Strategy lab",
+            "Setup scanner",
             "Integrations",
           ].includes(page) && (
             <div
@@ -540,6 +555,27 @@ function App() {
                         "Instrument added to watchlist",
                       )
                     }
+                  />
+                )}
+                {page === "AI desk" && (
+                  <AIDesk seed={aiSeed} go={go} show={show} />
+                )}
+                {page === "Setup scanner" && (
+                  <SetupScanner
+                    watch={watch}
+                    connected={Boolean(
+                      status.marketProvider === "upstox"
+                        ? status.upstox
+                        : status.kite.connected,
+                    )}
+                    go={go}
+                    discuss={(symbol) => {
+                      setAISeed({
+                        symbol,
+                        question: `Review my latest ${symbol} dip-and-rebound scan alongside the available news. Explain what supports it, what conflicts with it, whether the information is fresh, and what I should verify before deciding.`,
+                      });
+                      go("AI desk");
+                    }}
                   />
                 )}
                 {page === "Portfolio" && (

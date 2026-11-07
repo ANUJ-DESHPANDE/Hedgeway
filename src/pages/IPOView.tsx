@@ -180,7 +180,7 @@ export default function IPOView({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Xflot public API ↗
+              Xflot public API <ArrowUpRight size={14} />
             </a>
           }{" "}
           · Fetched {timestamp(items[0]?.asOf)}. Fetch time may differ from the

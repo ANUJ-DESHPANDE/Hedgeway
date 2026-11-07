@@ -48,7 +48,7 @@ export default function Overview({
           <p className="subtle">
             Already invest with Zerodha?{" "}
             <button className="text-button" onClick={() => go("Integrations")}>
-              Connect Kite to sync holdings ↗
+              Connect Kite to sync holdings <ArrowUpRight size={14} />
             </button>
           </p>
         </section>
@@ -58,7 +58,7 @@ export default function Overview({
             sub="Original sources. Fresh context."
             action={
               <button className="text-button" onClick={() => go("Research")}>
-                Read all ↗
+                Read all <ArrowUpRight size={14} />
               </button>
             }
           >
@@ -97,7 +97,7 @@ export default function Overview({
             sub="Issue dates and demand, with reported grey-market premiums."
             action={
               <button className="text-button" onClick={() => go("IPOs")}>
-                Track IPOs ↗
+                Track IPOs <ArrowUpRight size={14} />
               </button>
             }
           >
@@ -135,7 +135,7 @@ export default function Overview({
             title="Your market watch"
             action={
               <button className="text-button" onClick={() => go("Markets")}>
-                Manage watchlist ↗
+                Manage watchlist <ArrowUpRight size={14} />
               </button>
             }
           >

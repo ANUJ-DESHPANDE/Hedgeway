@@ -80,7 +80,21 @@ export function getIPOs(db: DB): IPO[] {
   return rows<{ payload: string }>(
     db,
     "SELECT s.payload FROM ipo_snapshots s JOIN (SELECT slug,MAX(observed_at) latest FROM ipo_snapshots GROUP BY slug) x ON s.slug=x.slug AND s.observed_at=x.latest ORDER BY s.observed_at DESC",
-  ).map((x) => JSON.parse(x.payload));
+  )
+    .map((x) => JSON.parse(x.payload) as IPO)
+    .sort((a, b) => {
+      const priority: Record<string, number> = {
+        OPEN: 0,
+        UPCOMING: 1,
+        CLOSED: 2,
+        LISTED: 3,
+      };
+      const group = (priority[a.status] ?? 4) - (priority[b.status] ?? 4);
+      if (group) return group;
+      if (a.status === "UPCOMING")
+        return (a.openDate || "9999").localeCompare(b.openDate || "9999");
+      return (b.closeDate || "").localeCompare(a.closeDate || "");
+    });
 }
 export async function ipoDetail(db: DB, slug: string) {
   const existing = getIPOs(db).find((p) => p.slug === slug);

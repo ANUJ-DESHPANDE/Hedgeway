@@ -48,7 +48,7 @@ export function kiteConnected(db: DB) {
     row(db, "SELECT id FROM broker_session WHERE expires_at>?", Date.now()),
   );
 }
-async function request(db: DB, path: string) {
+export async function kiteRequest(db: DB, path: string) {
   const session = row<{ encrypted_token: string; expires_at: number }>(
     db,
     "SELECT * FROM broker_session WHERE id=1",
@@ -116,7 +116,7 @@ export async function syncHoldings(db: DB) {
         close_price: z.number().nonnegative().optional(),
       }),
     )
-    .parse(await request(db, "/portfolio/holdings"));
+    .parse(await kiteRequest(db, "/portfolio/holdings"));
   const now = new Date().toISOString();
   transaction(db, () => {
     db.prepare("DELETE FROM holdings WHERE source='kite'").run();
@@ -172,7 +172,7 @@ export async function kiteQuotes(db: DB, symbols: string[]): Promise<Quote[]> {
       aliases.set(key, [...(aliases.get(key) || []), id]);
     }
     for (const key of aliases.keys()) query.append("i", key);
-    const data = await request(db, `/quote?${query}`);
+    const data = await kiteRequest(db, `/quote?${query}`);
     const result: Quote[] = [];
     for (const [id, v] of Object.entries(data)) {
       const q = z
@@ -235,7 +235,7 @@ export async function kiteHistory(db: DB, symbol: string, exchange = "NSE") {
           ),
         })
         .parse(
-          await request(
+          await kiteRequest(
             db,
             `/instruments/historical/${instrument.token}/day?${params}`,
           ),

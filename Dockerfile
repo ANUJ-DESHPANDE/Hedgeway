@@ -8,7 +8,7 @@ RUN --mount=type=secret,id=proxy_ca \
 COPY . .
 RUN npm run build && mkdir -p /runtime/src /runtime/data \
     && cp -r dist server scripts /runtime/ \
-    && cp src/analytics.ts /runtime/src/ \
+    && cp src/analytics.ts src/trading.ts /runtime/src/ \
     && cp package.json package-lock.json tsconfig.json /runtime/ \
     && chown node:node /runtime/data
 

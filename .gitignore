@@ -10,3 +10,6 @@ coverage/
 .openai/
 
 backups/
+
+playwright-report/
+test-results/

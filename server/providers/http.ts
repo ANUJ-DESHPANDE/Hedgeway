@@ -5,7 +5,7 @@ export async function fetchText(url: string, init: RequestInit = {}) {
   const response = await fetch(url, {
     ...init,
     redirect: "error",
-    signal: AbortSignal.timeout(12000),
+    signal: init.signal || AbortSignal.timeout(12000),
     headers: {
       "User-Agent": "Hedgeway/2.0 personal research",
       ...init.headers,

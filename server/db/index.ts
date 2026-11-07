@@ -44,6 +44,18 @@ export function openDatabase(
       );
     });
   }
+  if (!db.prepare("SELECT 1 FROM migrations WHERE version=3").get())
+    transaction(db, () => {
+      db.exec(
+        readFileSync(
+          fileURLToPath(new URL("./003_intelligence.sql", import.meta.url)),
+          "utf8",
+        ),
+      );
+      db.prepare("INSERT INTO migrations VALUES(3,?)").run(
+        new Date().toISOString(),
+      );
+    });
   return db;
 }
 export type DB = ReturnType<typeof openDatabase>;

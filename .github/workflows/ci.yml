@@ -21,6 +21,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm audit --audit-level=moderate
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
       - name: Build production container
         run: docker build -t hedgeway:ci .
       - name: Verify production runtime

@@ -9,3 +9,6 @@ backups
 coverage
 *.log
 work
+
+playwright-report
+test-results

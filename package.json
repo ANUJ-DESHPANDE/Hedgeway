@@ -18,7 +18,8 @@
     "ingest": "node --use-env-proxy --import tsx server/ingest-cli.ts",
     "setup": "node scripts/setup.mjs",
     "backup": "node --import tsx scripts/backup.ts",
-    "smoke": "node tests/container-smoke.mjs"
+    "smoke": "node tests/container-smoke.mjs",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "csv-parse": "^7.0.3",
@@ -38,6 +39,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",

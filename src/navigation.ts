@@ -1,6 +1,8 @@
 export type Page =
   | "Overview"
   | "Markets"
+  | "AI desk"
+  | "Setup scanner"
   | "Portfolio"
   | "Research"
   | "IPOs"

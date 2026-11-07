@@ -1,12 +1,16 @@
 # Hedgeway
 
-**An India-first investing workspace with live broker feeds, portfolio analytics, research ingestion and IPO tracking.**
+**An India-first investing workspace with live broker feeds, portfolio analytics, research ingestion, AI analysis, intraday setup checks and IPO tracking.**
 
 [![CI](https://github.com/ANUJ-DESHPANDE/hedgeway/actions/workflows/ci.yml/badge.svg)](https://github.com/ANUJ-DESHPANDE/hedgeway/actions/workflows/ci.yml)
 
 Hedgeway brings Indian equities, a personal portfolio, source-linked research and quantitative experiments into one responsive workspace. It is a single-owner application with a real SQL database and authenticated API—not a static dashboard.
 
-**There is no demo mode, fabricated price feed, prefilled portfolio or delayed-data fallback.** Without provider credentials, market data stays disconnected. Test fixtures exist only in `tests/`.
+**There is no demo mode, fabricated price feed, prefilled portfolio or delayed-data fallback.** Without provider credentials, market data stays disconnected. Test fixtures exist only in `tests/` and `browser/`.
+
+![Hedgeway desktop overview showing real public research and IPO records](docs/images/overview-desktop.png)
+
+Captured on 7 November 2026 with public-source data and no connected brokerage account. [Mobile view](docs/images/overview-mobile.png).
 
 ## Start locally
 
@@ -28,21 +32,25 @@ Open **http://localhost:4100**. The setup command creates a private `.env` and a
 3. Add NSE trading symbols or BSE scrip codes in **Markets**, or import your real holdings CSV in **Portfolio**.
 4. The selected broker stream connects automatically when credentials and instruments are present. Watch the connection banner and quote timestamps.
 5. Refresh **Research** and **IPOs**, or leave the enabled scheduler running.
+6. Open **Setup scanner** to check a stock against your recent-average and rebound conditions using completed broker candles.
+7. In **AI desk**, connect an OpenAI API key to discuss your research or a saved scan. Each request is explicit and can incur API charges; portfolio sharing is off by default.
 
 `npm run dev` runs Vite and the API with hot reload. Use the production command above for the Kite callback, whose default URL is `http://localhost:4100/api/kite/callback`.
 
 ## What works
 
-| Area         | Implemented behavior                                                                                                                                                                                                                                                                                 |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live markets | Upstox V3 protobuf or Kite v3 binary WebSocket adapter; server-side credentials; automatic reconnect; heartbeat watchdog; 100 ms UI batching; SQL snapshots every second; server-sent events to authenticated browsers                                                                               |
-| Portfolio    | Kite holdings sync or review-before-save CSV import; NSE/BSE identity separation; acquisition cost, unrealised P&L, sector allocation, position concentration, uniform and API-level sector stress tests; missing prices never become zero                                                           |
-| Research     | Economic Times, Moneycontrol and ValuePickr RSS adapters; approved Reddit OAuth adapter; canonical-URL deduplication; FTS5 search; short excerpts; bookmarks; symbol tagging and transparent lexicon sentiment                                                                                       |
-| IPOs         | Real Xflot issue data; price bands, lots, dates and subscriptions; reported GMP with disputed-data flags; category detail and stored snapshots; historical GMP-versus-listing outcome study                                                                                                          |
-| Strategy lab | Real broker daily prices or uploaded CSV; moving-average long/cash backtest with a full-bar signal delay, costs, drawdown, annualised volatility, Sharpe, historical VaR and expected shortfall; downloadable inputs, parameters, data fingerprint and results                                       |
-| Journal      | Persistent investment theses, risk/invalidation notes, catalysts and NSE price alerts; alerts evaluated on stream persistence and explicit quote refresh                                                                                                                                             |
-| Operations   | Database migrations, transactions and indexes; encrypted broker tokens; protected sessions; origin checks; request limits; job history; health endpoint; backup command; Docker deployment and CI                                                                                                    |
-| Interface    | Company-name lookup, guided broker setup, useful first-launch screens, progressive disclosure of advanced tools, responsive dark/light workspace, lazy-loaded pages, keyboard navigation palette, focus-trapped dialogs, accessible labels, loading/error/empty states and visible source provenance |
+| Area          | Implemented behavior                                                                                                                                                                                                                                                                                 |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live markets  | Upstox V3 protobuf or Kite v3 binary WebSocket adapter; server-side credentials; automatic reconnect; heartbeat watchdog; 100 ms UI batching; SQL snapshots every second; server-sent events to authenticated browsers                                                                               |
+| Portfolio     | Kite holdings sync or review-before-save CSV import; NSE/BSE identity separation; acquisition cost, unrealised P&L, sector allocation, position concentration, uniform and API-level sector stress tests; missing prices never become zero                                                           |
+| Research      | Economic Times, Moneycontrol and ValuePickr RSS adapters; approved Reddit OAuth adapter; canonical-URL deduplication; FTS5 search; short excerpts; bookmarks; symbol tagging and transparent lexicon sentiment                                                                                       |
+| IPOs          | Real Xflot issue data; price bands, lots, dates and subscriptions; reported GMP with disputed-data flags; category detail and stored snapshots; historical GMP-versus-listing outcome study                                                                                                          |
+| Strategy lab  | Real broker daily prices or uploaded CSV; moving-average long/cash backtest with a full-bar signal delay, costs, drawdown, annualised volatility, Sharpe, historical VaR and expected shortfall; downloadable inputs, parameters, data fingerprint and results                                       |
+| AI desk       | Source-linked analysis and follow-up discussions through the OpenAI Responses API; evidence snapshots, coverage and timestamps; strict structured answers; encrypted API key and optional portfolio sharing                                                                                          |
+| Setup scanner | Configurable 1/3/5-minute broker candles; prior-bar moving average, rebound, rising closes, volume, ATR and VWAP; completed-bar and freshness checks; hypothetical costs and risk sizing; saved scans and AI handoff                                                                                 |
+| Journal       | Persistent investment theses, risk/invalidation notes, catalysts and NSE price alerts; alerts evaluated on stream persistence and explicit quote refresh                                                                                                                                             |
+| Operations    | Database migrations, transactions and indexes; encrypted broker tokens; protected sessions; origin checks; request limits; job history; health endpoint; backup command; Docker deployment and CI                                                                                                    |
+| Interface     | Company-name lookup, guided broker setup, useful first-launch screens, progressive disclosure of advanced tools, responsive dark/light workspace, lazy-loaded pages, keyboard navigation palette, focus-trapped dialogs, accessible labels, loading/error/empty states and visible source provenance |
 
 ### Live-data access
 
@@ -64,11 +72,13 @@ flowchart LR
   S -->|transaction / 1 second| SQL
   W[Scheduled ingestion] --> R[RSS · Reddit · IPO adapters]
   R -->|canonical deduplication| SQL
+  API --> L[Evidence packet → OpenAI Responses]
+  L -->|validated answer + source snapshot| SQL
   API --> A[Pure analytics functions]
   A --> E[Reproducible experiment export]
 ```
 
-See [architecture and data contracts](docs/ARCHITECTURE.md), [analytics methodology](docs/ANALYTICS.md), [provider research](docs/PROVIDERS.md), [deployment](docs/DEPLOYMENT.md) and [verification status](docs/VERIFICATION.md).
+See [architecture and data contracts](docs/ARCHITECTURE.md), [analytics methodology](docs/ANALYTICS.md), [provider research](docs/PROVIDERS.md), [deployment](docs/DEPLOYMENT.md) and [verification status](docs/VERIFICATION.md). See [AI and scanner usage](docs/AI_AND_SCANNER.md) for the decision-support workflow and its limits.
 
 ## Commands
 
@@ -76,6 +86,8 @@ See [architecture and data contracts](docs/ARCHITECTURE.md), [analytics methodol
 npm run setup                 # create local config and encryption key
 npm run dev                   # Vite + API development
 npm run check                 # tests, TypeScript and production frontend build
+npx playwright install chromium # once, for browser testing
+npm run test:browser           # desktop + mobile interaction tests
 npm run ingest                # one bounded RSS + IPO ingestion pass
 npm run backup -- ./backups/hedgeway.sqlite
 ```
@@ -86,7 +98,7 @@ The production deployment requires a persistent database volume, a strong worksp
 
 Broker feeds deliver their own exchange snapshots and ticks; network latency, exchange hours, token expiry and outages still exist. The UI shows connection state and timestamps rather than promising perfect synchrony with another broker's terminal. IPO and news providers have different refresh schedules. GMP remains unofficial.
 
-Portfolio P&L is an acquisition-cost snapshot, not cash-flow-adjusted performance, tax accounting or a full transaction ledger. The strategy lab tests one security and is not an investment recommendation. Browser visual QA and credentialed broker acceptance testing must be completed in the intended deployment; see verification notes for checks already executed.
+Portfolio P&L is an acquisition-cost snapshot, not cash-flow-adjusted performance, tax accounting or a full transaction ledger. The strategy lab tests one security and is not an investment recommendation. Desktop/mobile browser workflows and visual review have been exercised. Credentialed broker and AI acceptance testing still require account access in the intended deployment; see verification notes. The intraday scanner implements transparent conditions, not a validated trading edge. AI citations identify supplied evidence, but do not prove that a generated interpretation is correct.
 
 ## License and acknowledgments
 

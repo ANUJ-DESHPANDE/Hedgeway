@@ -1,4 +1,5 @@
 import express from "express";
+import { decisionRoutes } from "./decision-routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { randomUUID } from "node:crypto";
@@ -653,6 +654,7 @@ export function createApp(
     audit(db, "kite.disconnect", "Local token removed");
     res.json({ ok: true });
   });
+  decisionRoutes(app, db);
   app.use("/api", (_req, res) =>
     res.status(404).json({ error: "API route not found." }),
   );

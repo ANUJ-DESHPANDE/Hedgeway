@@ -16,4 +16,9 @@ The first-use flow prioritizes reading research, following companies and importi
 | Live updates can steal focus from a dialog                             | Focus setup runs only on dialog mount, traps only visible/enabled controls and restores the previous focus and page scroll on close.                                          |
 | A completed IPO request can reopen a dismissed dialog                  | Responses update only the still-selected issue. Detail failures remain in the dialog with a retry action.                                                                     |
 
-The stylesheet includes mobile layouts, visible focus states, dark/light themes and reduced-motion handling. Runtime smoke and static-render checks were executed; visual/browser interaction acceptance remains pending because this environment did not provide a browser tool.
+| AI setup overwhelms the research workflow | Setup collapses after connection; question starters fill an editable draft. Saved discussions preserve evidence, and source references open the corresponding excerpt. |
+| A scanner looks like an unexplained buy signal | Each rule has a pass/wait explanation, with stale-data labels and a separate hypothetical plan. Advanced thresholds and sizing are expandable. |
+| Sending a setup to AI could unexpectedly spend API credits | The scanner fills a question and selects the stock; the user reviews it and explicitly sends the paid request. |
+| Sensitive portfolio details could enter every AI request | Holdings and sizing assumptions are excluded by default. A labelled checkbox enables sharing for that request. |
+
+The stylesheet includes mobile layouts, visible focus states, dark/light themes and reduced-motion handling. Desktop and mobile Chromium interaction tests exercise the primary workflows, including dialog focus during live updates. Screenshots of the overview, research, connections, AI desk and scanner were reviewed. Screen-reader and broader cross-browser acceptance remain separate deployment checks.

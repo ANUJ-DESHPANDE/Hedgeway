@@ -205,7 +205,7 @@ export default function Integrations({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Kite developer console ↗
+                    Kite developer console <ArrowUpRight size={14} />
                   </a>
                   .
                 </li>
@@ -432,7 +432,7 @@ export default function Integrations({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Reddit API documentation ↗
+                Reddit API documentation <ArrowUpRight size={14} />
               </a>
             </details>
             <p className="subtle">

@@ -108,6 +108,11 @@ try {
   const dashboard = await (await req("/api/dashboard")).json();
   assert.equal(dashboard.quotes.length, 0);
   assert.equal(dashboard.portfolio.positions.length, 0);
+  const ai = await (await req("/api/ai/status")).json();
+  assert.equal(ai.configured, false);
+  assert.equal(typeof ai.model, "string");
+  assert.deepEqual(await (await req("/api/ai/threads")).json(), []);
+  assert.deepEqual(await (await req("/api/scanner/history")).json(), []);
   const denied = await req("/api/notes", {
     method: "POST",
     headers: { Origin: "https://foreign.test" },
