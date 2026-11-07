@@ -221,6 +221,7 @@ export function getArticles(
   query = "",
   kind = "",
   saved = false,
+  scope?: { symbol: string; since: string; until: string },
 ): Article[] {
   const terms = query
     .match(/[\p{L}\p{N}]+/gu)
@@ -240,6 +241,16 @@ export function getArticles(
     args.push(kind);
   }
   if (saved) clauses.push("b.article_id IS NOT NULL");
+  if (scope) {
+    clauses.push("a.published_at>=? AND a.published_at<=?");
+    args.push(scope.since, scope.until);
+    if (scope.symbol) {
+      clauses.push(
+        "(EXISTS (SELECT 1 FROM json_each(a.symbols) WHERE value=?) OR instr(upper(a.title),?)>0)",
+      );
+      args.push(scope.symbol, scope.symbol);
+    }
+  }
   return rows<any>(
     db,
     `SELECT a.*,b.article_id AS saved FROM articles a LEFT JOIN bookmarks b ON b.article_id=a.id ${clauses.length ? "WHERE " + clauses.join(" AND ") : ""} ORDER BY a.published_at DESC LIMIT 150`,

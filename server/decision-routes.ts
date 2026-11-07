@@ -67,6 +67,7 @@ export function decisionRoutes(app: express.Express, db: DB) {
           symbol: z.union([symbol, z.literal("")]).default(""),
           includePortfolio: z.boolean().default(false),
           threadId: z.string().uuid().optional(),
+          scanId: z.string().uuid().optional(),
         })
         .parse(req.body);
       res.json(await askAI(db, input));
@@ -96,12 +97,26 @@ export function decisionRoutes(app: express.Express, db: DB) {
   });
   app.get("/api/scanner/history", (_req, res) =>
     res.json(
-      rows<{ payload: string }>(
+      rows(
         db,
-        "SELECT payload FROM scanner_runs ORDER BY created_at DESC LIMIT 40",
-      ).map((r) => JSON.parse(r.payload)),
+        "SELECT id,symbol,exchange,created_at AS createdAt,json_extract(payload,'$.state') AS state FROM scanner_runs ORDER BY created_at DESC LIMIT 40",
+      ),
     ),
   );
+  app.get("/api/scanner/history/:id", (req, res) => {
+    const saved = row<{ payload: string }>(
+      db,
+      "SELECT payload FROM scanner_runs WHERE id=?",
+      z.string().uuid().parse(req.params.id),
+    );
+    if (!saved)
+      return res
+        .status(404)
+        .json({
+          error: "That saved scan is no longer available. Run a new check.",
+        });
+    res.json(JSON.parse(saved.payload));
+  });
   app.post("/api/scanner", async (req, res) => {
     const v = z
       .object({

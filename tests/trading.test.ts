@@ -89,3 +89,19 @@ describe("intraday decision checklist", () => {
     ).toThrow("inconsistent");
   });
 });
+
+it("preserves the complete session and evaluation time needed to reproduce a saved analysis", () => {
+  const bars = Array.from({ length: 120 }, (_, i) => ({
+    ...candles()[i % 30],
+    time: new Date(start + i * 60000).toISOString(),
+  }));
+  const result = analyzeSetup(bars, defaultSetup, start + 120 * 60000 + 10000);
+  expect(result.bars).toHaveLength(120);
+  expect(
+    analyzeSetup(
+      result.bars,
+      result.parameters,
+      Date.parse(result.evaluatedAt),
+    ),
+  ).toEqual(result);
+});

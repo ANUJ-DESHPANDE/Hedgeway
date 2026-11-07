@@ -1,3 +1,9 @@
+export type ScanReference = {
+  id: string;
+  symbol: string;
+  exchange: string;
+  asOf: string | null;
+};
 export type Evidence = {
   id: string;
   kind: "article" | "forum" | "market" | "setup" | "portfolio";
@@ -25,6 +31,7 @@ export type AIAnswer = {
   openQuestions: string[];
 };
 export type AIRun = {
+  scan?: ScanReference;
   id: string;
   threadId: string;
   question: string;

@@ -208,7 +208,7 @@ test("populated scanner explains its checks, plan and AI handoff", async ({
   }));
   const result = {
     ...analyzeSetup(bars, defaultSetup, now),
-    id: "isolated-test-scan",
+    id: "11111111-1111-4111-8111-111111111111",
     symbol: "INFY",
     exchange: "NSE",
     source: "Test fixture only",
@@ -229,6 +229,22 @@ test("populated scanner explains its checks, plan and AI handoff", async ({
   await page.route("**/api/scanner", (route) =>
     route.fulfill({ json: [result] }),
   );
+  await page.route("**/api/scanner/history", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: result.id,
+          symbol: result.symbol,
+          exchange: result.exchange,
+          state: result.state,
+          createdAt: result.createdAt,
+        },
+      ],
+    }),
+  );
+  await page.route(`**/api/scanner/history/${result.id}`, (route) =>
+    route.fulfill({ json: result }),
+  );
   await page.goto("/");
   await navigate(page, "Setup scanner");
   await page.getByRole("button", { name: "Check my setup" }).click();
@@ -247,11 +263,48 @@ test("populated scanner explains its checks, plan and AI handoff", async ({
       () => document.documentElement.scrollWidth <= innerWidth + 1,
     ),
   ).toBe(true);
+  await page.getByLabel("Average window").fill("25");
+  await expect(page.getByText(/Settings have changed/)).toBeVisible();
+  await page.clock.fastForward(180000);
+  await expect(page.getByText("HISTORICAL", { exact: true })).toBeVisible();
+  await expect(page.getByText("CONDITIONS MET", { exact: true })).toHaveCount(
+    0,
+  );
+  await page
+    .getByText("Recent scans · review what the data showed", { exact: true })
+    .click();
+  await page.getByRole("button", { name: "Open saved scan" }).click();
+  await expect(page.getByText("HISTORICAL", { exact: true })).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Export scan evidence" }).click(),
+  ]);
+  const { readFile } = await import("node:fs/promises");
+  const exported = JSON.parse(await readFile((await download.path())!, "utf8"));
+  expect(exported.scan.state).toBe("conditions_met");
+  expect(exported.scan.parameters.lookback).toBe(20);
+  expect(exported.scan.bars).toEqual(bars);
+  await page.route("**/api/ai/status", (route) =>
+    route.fulfill({ json: { configured: true, model: "test-fixture" } }),
+  );
+  let sent: any;
+  await page.route("**/api/ai/ask", async (route) => {
+    sent = route.request().postDataJSON();
+    await route.fulfill({
+      status: 503,
+      json: { error: "Test request captured without contacting a model." },
+    });
+  });
   await page
     .getByRole("button", { name: "Discuss this setup with AI" })
     .click();
   await expect(page.getByLabel("Focus symbol · optional")).toHaveValue("INFY");
   await expect(
     page.getByLabel("What would you like to understand?"),
-  ).toHaveValue(/latest INFY/);
+  ).toHaveValue(/saved NSE:INFY/);
+  await expect(page.getByText(/Pinned scan: NSE:INFY/)).toBeVisible();
+  await page.getByRole("button", { name: "Analyze evidence" }).click();
+  await expect(page.getByRole("alert")).toContainText("Test request captured");
+  expect(sent.scanId).toBe(result.id);
+  expect(sent.symbol).toBe("INFY");
 });

@@ -8,7 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { api, number, post, remove, timestamp } from "../api";
-import type { AIRun } from "../intelligence-types";
+import type { AIRun, ScanReference } from "../intelligence-types";
 import type { Page } from "../navigation";
 import { Empty, Panel } from "../ui";
 export default function AIDesk({
@@ -16,7 +16,7 @@ export default function AIDesk({
   go,
   show,
 }: {
-  seed: { question: string; symbol: string } | null;
+  seed: { question: string; symbol: string; scan?: ScanReference } | null;
   go: (page: Page) => void;
   show: (message: string, error?: boolean) => void;
 }) {
@@ -28,6 +28,7 @@ export default function AIDesk({
     [model, setModel] = useState("gpt-5.5"),
     [question, setQuestion] = useState(seed?.question || ""),
     [symbol, setSymbol] = useState(seed?.symbol || ""),
+    [scan, setScan] = useState<ScanReference | null>(seed?.scan || null),
     [includePortfolio, setIncludePortfolio] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -66,6 +67,7 @@ export default function AIDesk({
         question,
         symbol,
         includePortfolio,
+        ...(scan ? { scanId: scan.id } : {}),
         ...(threadId ? { threadId } : {}),
       });
       setRuns((r) => [...r, result]);
@@ -195,6 +197,7 @@ export default function AIDesk({
               setThreadId("");
               setRuns([]);
               setQuestion("");
+              setScan(null);
               setError("");
             }}
           >
@@ -208,12 +211,20 @@ export default function AIDesk({
               disabled={busy}
               onChange={async (e) => {
                 const id = e.target.value;
-                setThreadId(id);
+                setBusy(true);
                 setError("");
                 try {
-                  setRuns(id ? await api(`/ai/threads/${id}`) : []);
+                  const saved = id
+                    ? await api<AIRun[]>(`/ai/threads/${id}`)
+                    : [];
+                  setRuns(saved);
+                  setThreadId(id);
+                  setScan(saved.at(-1)?.scan || null);
+                  if (saved.at(-1)?.scan) setSymbol(saved.at(-1)!.scan!.symbol);
                 } catch (e) {
                   setError((e as Error).message);
+                } finally {
+                  setBusy(false);
                 }
               }}
             >
@@ -301,7 +312,10 @@ export default function AIDesk({
               Focus symbol · optional
               <input
                 value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setSymbol(e.target.value.toUpperCase());
+                  setScan(null);
+                }}
                 placeholder="All research"
                 maxLength={30}
               />
@@ -316,6 +330,16 @@ export default function AIDesk({
               sent to OpenAI
             </label>
           </div>
+          {scan && (
+            <p className="notice">
+              Pinned scan: {scan.exchange}:{scan.symbol} ·{" "}
+              {timestamp(scan.asOf)}. This discussion uses that saved result
+              even if a newer scan exists.{" "}
+              <button type="button" onClick={() => setScan(null)}>
+                Use latest available scan
+              </button>
+            </p>
+          )}
           {error && (
             <p className="error-box" role="alert">
               {error}

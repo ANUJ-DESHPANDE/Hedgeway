@@ -48,7 +48,8 @@ export function analyzeSetup(
   const required = Math.max(p.lookback + 6, 16, p.confirmationBars + 2);
   const base = {
     parameters: p,
-    bars: bars.slice(-Math.max(p.lookback * 2, 80)),
+    bars,
+    evaluatedAt: new Date(now).toISOString(),
     asOf: last
       ? new Date(Date.parse(last.time) + duration).toISOString()
       : null,

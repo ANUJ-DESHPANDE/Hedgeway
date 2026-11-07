@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, RefreshCw, ScanLine, Sparkles, X } from "lucide-react";
+import {
+  Check,
+  Download,
+  RefreshCw,
+  ScanLine,
+  Sparkles,
+  X,
+} from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -16,6 +23,7 @@ import {
   type SetupParameters,
 } from "../trading";
 import type { Page } from "../navigation";
+import type { ScanReference } from "../intelligence-types";
 import { Empty, Panel, Stat, tooltipStyle } from "../ui";
 type Result = SetupAnalysis & {
   id: string;
@@ -25,7 +33,12 @@ type Result = SetupAnalysis & {
   fetchedAt: string;
   createdAt: string;
   error?: string;
+  reviewOnly?: boolean;
 };
+type HistoryItem = Pick<
+  Result,
+  "id" | "symbol" | "exchange" | "createdAt" | "state"
+>;
 export default function SetupScanner({
   watch,
   connected,
@@ -35,7 +48,7 @@ export default function SetupScanner({
   watch: string[];
   connected: boolean;
   go: (page: Page) => void;
-  discuss: (symbol: string) => void;
+  discuss: (scan: ScanReference) => void;
 }) {
   const [symbol, setSymbol] = useState(watch[0]?.split(":")[1] || "INFY"),
     [exchange, setExchange] = useState(watch[0]?.split(":")[0] || "NSE"),
@@ -45,13 +58,20 @@ export default function SetupScanner({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [auto, setAuto] = useState(false),
-    [history, setHistory] = useState<Result[]>([]);
+    [history, setHistory] = useState<HistoryItem[]>([]);
+  const form = useRef<HTMLFormElement>(null);
   const pending = useRef(false),
     runRef = useRef<() => void>(() => {});
   const update = (key: keyof SetupParameters, value: number) =>
     setParameters((p) => ({ ...p, [key]: value }));
   const refresh = async () => {
-    if (pending.current) return;
+    if (
+      pending.current ||
+      !connected ||
+      !form.current?.checkValidity() ||
+      (scanWatch && !watch.length)
+    )
+      return;
     pending.current = true;
     setBusy(true);
     setError("");
@@ -73,7 +93,7 @@ export default function SetupScanner({
   };
   runRef.current = () => void refresh();
   useEffect(() => {
-    api<Result[]>("/scanner/history")
+    api<HistoryItem[]>("/scanner/history")
       .then(setHistory)
       .catch(() => {});
   }, []);
@@ -92,6 +112,7 @@ export default function SetupScanner({
       >
         <form
           className="scanner-form"
+          ref={form}
           onSubmit={(e) => {
             e.preventDefault();
             void refresh();
@@ -245,18 +266,30 @@ export default function SetupScanner({
           )}
         </form>
       </Panel>
-      {results.map((result) =>
-        result.error ? (
-          <Panel
-            key={`${result.exchange}:${result.symbol}`}
-            title={`${result.exchange}:${result.symbol}`}
-          >
-            <p className="error-box">{result.error}</p>
-          </Panel>
-        ) : (
-          <SetupResult key={result.id} result={result} discuss={discuss} />
-        ),
+      {results.some(
+        (r) =>
+          !r.error &&
+          JSON.stringify(r.parameters) !== JSON.stringify(parameters),
+      ) && (
+        <p className="notice" role="status">
+          Settings have changed. Results below still use their saved settings;
+          run a new check to apply your changes.
+        </p>
       )}
+      <div id="scanner-results">
+        {results.map((result) =>
+          result.error ? (
+            <Panel
+              key={`${result.exchange}:${result.symbol}`}
+              title={`${result.exchange}:${result.symbol}`}
+            >
+              <p className="error-box">{result.error}</p>
+            </Panel>
+          ) : (
+            <SetupResult key={result.id} result={result} discuss={discuss} />
+          ),
+        )}
+      </div>
       {!results.length && (
         <Empty
           title="A checklist, before a decision"
@@ -286,18 +319,32 @@ export default function SetupScanner({
                     <td>{r.state.replaceAll("_", " ")}</td>
                     <td>
                       <button
-                        onClick={() =>
-                          setResults([
-                            r.metrics
-                              ? {
-                                  ...r,
-                                  state: "stale",
-                                  summary:
-                                    "Saved historical scan — rerun to check the current conditions.",
-                                }
-                              : r,
-                          ])
-                        }
+                        disabled={busy}
+                        onClick={async () => {
+                          setAuto(false);
+                          pending.current = true;
+                          setBusy(true);
+                          setError("");
+                          try {
+                            const saved = await api<Result>(
+                              `/scanner/history/${r.id}`,
+                            );
+                            setResults([{ ...saved, reviewOnly: true }]);
+                            requestAnimationFrame(() =>
+                              document
+                                .getElementById("scanner-results")
+                                ?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "start",
+                                }),
+                            );
+                          } catch (e) {
+                            setError((e as Error).message);
+                          } finally {
+                            pending.current = false;
+                            setBusy(false);
+                          }
+                        }}
                       >
                         Open saved scan
                       </button>
@@ -317,12 +364,18 @@ function SetupResult({
   discuss,
 }: {
   result: Result;
-  discuss: (symbol: string) => void;
+  discuss: (scan: ScanReference) => void;
 }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
   const historical =
-    original.asOf &&
-    Date.now() - Date.parse(original.asOf) >
-      Math.max(90000, original.parameters.barMinutes * 120000);
+    original.reviewOnly ||
+    (original.asOf &&
+      now - Date.parse(original.asOf) >
+        Math.max(90000, original.parameters.barMinutes * 120000));
   const r = historical
     ? {
         ...original,
@@ -360,6 +413,16 @@ function SetupResult({
     >
       <div className="scanner-result">
         <p className="setup-summary">{r.summary}</p>
+        {!r.evaluatedAt && (
+          <p className="notice">
+            This older scan predates complete input capture. Its export may not
+            reproduce every metric.
+          </p>
+        )}
+        <p className="subtle">
+          Saved settings: {r.parameters.lookback} × {r.parameters.barMinutes}
+          -minute candles · costs {r.parameters.costBps} bps per side.
+        </p>
         {r.metrics && (
           <>
             <div className="stats-grid">
@@ -426,17 +489,28 @@ function SetupResult({
           </>
         )}
         <ul className="setup-checks">
-          {r.checks.map((c) => (
-            <li key={c.label}>
-              <span className={c.passed ? "positive" : "muted"}>
-                {c.passed ? <Check size={18} /> : <X size={18} />}
-              </span>
-              <div>
-                <strong>{c.label}</strong>
-                <p>{c.detail}</p>
-              </div>
-            </li>
-          ))}
+          {r.checks.map((check) => {
+            const c =
+              historical && check.label === "Complete, recent bars"
+                ? {
+                    ...check,
+                    passed: false,
+                    detail:
+                      "This is a historical review. Rerun the scanner for current conditions.",
+                  }
+                : check;
+            return (
+              <li key={c.label}>
+                <span className={c.passed ? "positive" : "muted"}>
+                  {c.passed ? <Check size={18} /> : <X size={18} />}
+                </span>
+                <div>
+                  <strong>{c.label}</strong>
+                  <p>{c.detail}</p>
+                </div>
+              </li>
+            );
+          })}
         </ul>
         {r.plan && (
           <details className="disclosure">
@@ -468,9 +542,47 @@ function SetupResult({
           </details>
         )}
         <div className="button-row">
-          <button onClick={() => discuss(r.symbol)}>
+          <button
+            onClick={() =>
+              discuss({
+                id: r.id,
+                symbol: r.symbol,
+                exchange: r.exchange,
+                asOf: r.asOf,
+              })
+            }
+          >
             <Sparkles size={15} />
             Discuss this setup with AI
+          </button>
+          <button
+            onClick={() => {
+              const { reviewOnly, ...scan } = original;
+              const blob = new Blob(
+                [
+                  JSON.stringify(
+                    {
+                      schemaVersion: 1,
+                      exportedAt: new Date().toISOString(),
+                      description:
+                        "Saved broker-candle inputs, parameters and original analysis. Historical evidence, not a current trading signal.",
+                      scan,
+                    },
+                    null,
+                    2,
+                  ),
+                ],
+                { type: "application/json" },
+              );
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `hedgeway-${r.exchange}-${r.symbol}-${r.id}.json`;
+              link.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }}
+          >
+            <Download size={15} /> Export scan evidence
           </button>
           <span className="subtle">
             No orders are sent. Old scans remain historical, even when reviewed

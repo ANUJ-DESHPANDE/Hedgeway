@@ -5,7 +5,11 @@ import { audit, row, rows, transaction } from "./db/index.js";
 import { decrypt, encrypt } from "./security.js";
 import { json } from "./providers/http.js";
 import { getArticles } from "./providers/research.js";
-import type { AIRun, Evidence } from "../src/intelligence-types.js";
+import type {
+  AIRun,
+  Evidence,
+  ScanReference,
+} from "../src/intelligence-types.js";
 import type { Quote } from "../src/types.js";
 const finding = z.object({
   heading: z.string(),
@@ -84,9 +88,46 @@ export function buildEvidence(
   symbol = "",
   includePortfolio = false,
   now = Date.now(),
+  scanId?: string,
 ) {
+  type SavedScan = {
+    id: string;
+    symbol: string;
+    exchange: string;
+    payload: string;
+    created_at: string;
+  };
+  const setup = scanId
+    ? row<SavedScan>(db, "SELECT * FROM scanner_runs WHERE id=?", scanId)
+    : symbol
+      ? row<SavedScan>(
+          db,
+          "SELECT * FROM scanner_runs WHERE symbol=? ORDER BY created_at DESC LIMIT 1",
+          symbol,
+        )
+      : undefined;
+  if (scanId && !setup)
+    throw new Error(
+      "That saved scan is no longer available. Open another scan or choose the latest available scan.",
+    );
+  if (scanId && setup?.symbol !== symbol)
+    throw new Error(
+      "The selected scan does not match the focus symbol. Choose the matching scan before continuing.",
+    );
+  const scan: ScanReference | undefined = setup
+    ? {
+        id: setup.id,
+        symbol: setup.symbol,
+        exchange: setup.exchange,
+        asOf: JSON.parse(setup.payload).asOf || null,
+      }
+    : undefined;
   const cutoff = now - 7 * 86400000;
-  const candidates = getArticles(db)
+  const candidates = getArticles(db, "", "", false, {
+    symbol,
+    since: new Date(cutoff).toISOString(),
+    until: new Date(now + 60000).toISOString(),
+  })
     .filter(
       (a) =>
         Date.parse(a.publishedAt) >= cutoff &&
@@ -129,7 +170,11 @@ export function buildEvidence(
   }));
   const quotes = rows<{ payload: string }>(db, "SELECT payload FROM quotes")
     .map((r) => JSON.parse(r.payload) as Quote)
-    .filter((q) => !symbol || q.symbol === symbol)
+    .filter(
+      (q) =>
+        (!symbol || q.symbol === symbol) &&
+        (!scan || q.exchange === scan.exchange),
+    )
     .slice(0, 20);
   for (const [i, q] of quotes.entries())
     sources.push({
@@ -145,36 +190,29 @@ export function buildEvidence(
         changePct: q.change,
       }),
     });
-  if (symbol) {
-    const setup = row<{ payload: string; created_at: string }>(
-      db,
-      "SELECT payload,created_at FROM scanner_runs WHERE symbol=? ORDER BY created_at DESC LIMIT 1",
-      symbol,
-    );
-    if (setup)
-      sources.push({
-        id: "T1",
-        kind: "setup",
-        title: `${symbol} latest saved setup scan`,
-        source: "Hedgeway deterministic scanner",
-        url: null,
-        asOf: JSON.parse(setup.payload).asOf || setup.created_at,
-        content: JSON.stringify(JSON.parse(setup.payload), (key, value) =>
-          key === "bars" ||
-          (!includePortfolio &&
-            [
-              "capital",
-              "riskBudget",
-              "quantity",
-              "risk",
-              "reward",
-              "estimatedCosts",
-            ].includes(key))
-            ? undefined
-            : value,
-        ),
-      });
-  }
+  if (setup && scan)
+    sources.push({
+      id: "T1",
+      kind: "setup",
+      title: `${scan.exchange}:${scan.symbol} ${scanId ? "selected" : "latest saved"} setup scan`,
+      source: "Hedgeway deterministic scanner",
+      url: null,
+      asOf: scan.asOf || setup.created_at,
+      content: JSON.stringify(JSON.parse(setup.payload), (key, value) =>
+        key === "bars" ||
+        (!includePortfolio &&
+          [
+            "capital",
+            "riskBudget",
+            "quantity",
+            "risk",
+            "reward",
+            "estimatedCosts",
+          ].includes(key))
+          ? undefined
+          : value,
+      ),
+    });
   if (includePortfolio) {
     const holdings = rows(
       db,
@@ -195,6 +233,7 @@ export function buildEvidence(
   const dates = articles.map((a) => a.publishedAt).sort();
   return {
     sources,
+    ...(scan ? { scan } : {}),
     coverage: {
       items: articles.length,
       publishers: new Set(articles.map((a) => a.source)).size,
@@ -232,6 +271,7 @@ export async function askAI(
     symbol: string;
     includePortfolio: boolean;
     threadId?: string;
+    scanId?: string;
   },
 ): Promise<AIRun> {
   if (active.has(db))
@@ -248,7 +288,13 @@ export async function askAI(
     : null;
   if (input.threadId && !thread)
     throw new Error("Conversation no longer exists. Start a new discussion.");
-  const packet = buildEvidence(db, input.symbol, input.includePortfolio);
+  const packet = buildEvidence(
+    db,
+    input.symbol,
+    input.includePortfolio,
+    Date.now(),
+    input.scanId,
+  );
   if (!packet.sources.length)
     throw new Error(
       "No relevant evidence is available. Refresh Research, add market data, or clear the symbol filter.",

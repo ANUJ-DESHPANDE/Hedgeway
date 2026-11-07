@@ -187,3 +187,33 @@ describe("review-before-import workflow", () => {
     expect(rows(db, "SELECT * FROM holdings")).toHaveLength(0);
   });
 });
+
+it("lists small scan summaries and retrieves only the selected saved evidence", async () => {
+  const { db, get } = setup();
+  const id = "11111111-1111-4111-8111-111111111111";
+  const scan = {
+    id,
+    symbol: "INFY",
+    exchange: "NSE",
+    state: "wait",
+    createdAt: new Date().toISOString(),
+    bars: Array.from({ length: 375 }, (_, i) => ({ close: i + 1 })),
+  };
+  db.prepare("INSERT INTO scanner_runs VALUES(?,?,?,?,?)").run(
+    id,
+    scan.symbol,
+    scan.exchange,
+    JSON.stringify(scan),
+    scan.createdAt,
+  );
+  const history = await get("/scanner/history");
+  expect(history.status).toBe(200);
+  expect(history.body).toHaveLength(1);
+  expect(history.body[0]).not.toHaveProperty("bars");
+  expect(history.body[0]).not.toHaveProperty("payload");
+  expect((await get(`/scanner/history/${id}`)).body).toEqual(scan);
+  expect(
+    (await get("/scanner/history/22222222-2222-4222-8222-222222222222")).status,
+  ).toBe(404);
+  expect((await get("/scanner/history/not-an-id")).status).toBe(400);
+});

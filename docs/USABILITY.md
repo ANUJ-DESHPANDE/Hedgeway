@@ -21,4 +21,6 @@ The first-use flow prioritizes reading research, following companies and importi
 | Sending a setup to AI could unexpectedly spend API credits | The scanner fills a question and selects the stock; the user reviews it and explicitly sends the paid request. |
 | Sensitive portfolio details could enter every AI request | Holdings and sizing assumptions are excluded by default. A labelled checkbox enables sharing for that request. |
 
+A second scanner review preserves the exact scan when handing it to AI, labels changed form settings without rewriting results, updates stale states on a timer, and exports the original evidence. Reviewing history pauses auto-refresh, loads only the selected scan and scrolls its result into view. Scoped AI retrieval applies the company filter before the feed limit.
+
 The stylesheet includes mobile layouts, visible focus states, dark/light themes and reduced-motion handling. Desktop and mobile Chromium interaction tests exercise the primary workflows, including dialog focus during live updates. Screenshots of the overview, research, connections, AI desk and scanner were reviewed. Screen-reader and broader cross-browser acceptance remain separate deployment checks.

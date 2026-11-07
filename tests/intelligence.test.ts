@@ -213,3 +213,128 @@ it("omits private sizing assumptions from scanner context unless explicitly shar
     buildEvidence(db, "INFY", true).sources.find((s) => s.id === "T1")!.content,
   ).toContain("76543");
 });
+
+it("keeps a selected historical scan and its exchange even when newer scans exist", async () => {
+  const db = setup();
+  const old = "11111111-1111-4111-8111-111111111111";
+  for (const [id, exchange, marker, offset] of [
+    [old, "NSE", "selected old conditions", -60000],
+    [
+      "22222222-2222-4222-8222-222222222222",
+      "BSE",
+      "new unrelated conditions",
+      0,
+    ],
+  ] as const) {
+    const asOf = new Date(Date.now() + offset).toISOString();
+    db.prepare("INSERT INTO scanner_runs VALUES(?,?,?,?,?)").run(
+      id,
+      "INFY",
+      exchange,
+      JSON.stringify({ id, asOf, marker }),
+      asOf,
+    );
+    db.prepare("INSERT INTO quotes VALUES(?,?,?,?)").run(
+      "INFY",
+      exchange,
+      JSON.stringify({
+        symbol: "INFY",
+        exchange,
+        price: 100,
+        previousClose: 99,
+        change: 1,
+        source: "test",
+        asOf,
+      }),
+      asOf,
+    );
+  }
+  vi.stubEnv("OPENAI_API_KEY", "test-key");
+  const fetch = vi.fn().mockImplementation(async () => response());
+  vi.stubGlobal("fetch", fetch);
+  const run = await askAI(db, {
+    question: "Explain this saved scan",
+    symbol: "INFY",
+    includePortfolio: false,
+    scanId: old,
+  });
+  expect(run.scan).toMatchObject({ id: old, symbol: "INFY", exchange: "NSE" });
+  expect(run.sources.find((s) => s.id === "T1")!.content).toContain(
+    "selected old conditions",
+  );
+  expect(JSON.stringify(run.sources)).not.toContain("new unrelated conditions");
+  expect(
+    run.sources.filter((s) => s.kind === "market").map((s) => s.title),
+  ).toEqual(["NSE:INFY last received quote"]);
+  expect(
+    JSON.parse(
+      row<any>(db, "SELECT payload FROM ai_runs WHERE id=?", run.id)!.payload,
+    ).scan.id,
+  ).toBe(old);
+});
+
+it("rejects missing or mismatched pinned scans before contacting the model", async () => {
+  const db = setup();
+  vi.stubEnv("OPENAI_API_KEY", "test-key");
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  const input = {
+    question: "Explain a saved scan",
+    symbol: "INFY",
+    includePortfolio: false,
+    scanId: "missing",
+  };
+  await expect(askAI(db, input)).rejects.toThrow("no longer available");
+  db.prepare("INSERT INTO scanner_runs VALUES(?,?,?,?,?)").run(
+    "wrong",
+    "TCS",
+    "NSE",
+    "{}",
+    new Date().toISOString(),
+  );
+  await expect(askAI(db, { ...input, scanId: "wrong" })).rejects.toThrow(
+    "does not match",
+  );
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it("finds symbol-tagged research beyond the general feed's latest 150 rows", () => {
+  const db = setup();
+  const now = Date.now();
+  db.prepare("UPDATE articles SET published_at=?").run(
+    new Date(now - 3600000).toISOString(),
+  );
+  storeArticles(
+    db,
+    Array.from({ length: 160 }, (_, i) => ({
+      id: `unrelated-${i}`,
+      title: `Unrelated market story ${i}`,
+      url: `https://example.com/unrelated-${i}`,
+      source: "Test publisher",
+      kind: "article",
+      publishedAt: new Date(now - i * 1000).toISOString(),
+      fetchedAt: new Date(now).toISOString(),
+      summary: "Test only",
+      symbols: [],
+      sentiment: 0,
+    })),
+  );
+  storeArticles(
+    db,
+    Array.from({ length: 160 }, (_, i) => ({
+      id: `future-${i}`,
+      title: `INFY future-dated fixture ${i}`,
+      url: `https://example.com/future-${i}`,
+      source: "Test publisher",
+      kind: "article",
+      publishedAt: new Date(now + 86400000).toISOString(),
+      fetchedAt: new Date(now).toISOString(),
+      summary: "Test only",
+      symbols: ["INFY"],
+      sentiment: 0,
+    })),
+  );
+  const packet = buildEvidence(db, "INFY", false, now);
+  expect(packet.coverage.items).toBe(1);
+  expect(packet.sources[0].title).toBe("Infosys reports quarterly results");
+});

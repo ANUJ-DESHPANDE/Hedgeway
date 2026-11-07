@@ -34,6 +34,7 @@ import { createRoot } from "react-dom/client";
 import { portfolio as calculatePortfolio } from "./analytics";
 import { api, post, remove } from "./api";
 import type { Page } from "./navigation";
+import type { ScanReference } from "./intelligence-types";
 import ImportModal from "./pages/ImportModal";
 import "./styles.css";
 import type { Article, IPO, Mode, Portfolio, Quote } from "./types";
@@ -91,6 +92,7 @@ function App() {
   const [aiSeed, setAISeed] = useState<{
     question: string;
     symbol: string;
+    scan?: ScanReference;
   } | null>(null);
   const [mode, setMode] = useState<Mode>("workspace");
   const [theme, setTheme] = useState(
@@ -569,10 +571,11 @@ function App() {
                         : status.kite.connected,
                     )}
                     go={go}
-                    discuss={(symbol) => {
+                    discuss={(scan) => {
                       setAISeed({
-                        symbol,
-                        question: `Review my latest ${symbol} dip-and-rebound scan alongside the available news. Explain what supports it, what conflicts with it, whether the information is fresh, and what I should verify before deciding.`,
+                        symbol: scan.symbol,
+                        scan,
+                        question: `Review this saved ${scan.exchange}:${scan.symbol} dip-and-rebound scan alongside the available news. Explain what supports it, what conflicts with it, whether the information is fresh, and what I should verify before deciding.`,
                       });
                       go("AI desk");
                     }}
