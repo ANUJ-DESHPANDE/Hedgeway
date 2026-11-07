@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 async function navigate(page: Page, name: string) {
+  await expect(
+    page.getByRole("main").getByRole("heading", { level: 1 }),
+  ).toBeVisible();
   const menu = page.getByRole("button", {
     name: "Open navigation",
     exact: true,
