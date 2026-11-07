@@ -12,6 +12,10 @@ Hedgeway brings Indian equities, a personal portfolio, source-linked research an
 
 Captured on 7 November 2026 with public-source data and no connected brokerage account. [Mobile view](docs/images/overview-mobile.png).
 
+## Open on Windows without Git
+
+Install [Node.js 24 or newer](https://nodejs.org/en/download), then download this repository with **Code → Download ZIP** and extract it. Inside the extracted folder, double-click **Start Hedgeway.cmd**. The launcher installs the locked dependencies, creates private local configuration, builds the app and starts its server. Keep its window open and visit **http://localhost:4100** after the ready message appears. No broker or AI credential is needed to explore the interface. This launcher uses the same startup commands below; it has not been exercised on a Windows machine in the cloud build environment.
+
 ## Start locally
 
 Install **Node.js 24+**, then run:
