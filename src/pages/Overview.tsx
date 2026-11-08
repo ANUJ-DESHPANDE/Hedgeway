@@ -3,6 +3,9 @@ import {
   ArrowUpRight,
   FlaskConical,
   ShieldCheck,
+  ScanLine,
+  Sparkles,
+  Radio,
 } from "lucide-react";
 import { date, money, number } from "../api";
 import type { Article, IPO, Mode, Portfolio, Quote } from "../types";
@@ -32,26 +35,125 @@ export default function Overview({
   if (!p.positions.length)
     return (
       <>
-        <section className="welcome-panel">
-          <span className="eyebrow">MAKE ROOM FOR A CLEARER VIEW</span>
-          <h2>Start with what you want to follow.</h2>
-          <p>
-            Read market news and track IPOs right away. Bring in your holdings
-            whenever you’re ready.
-          </p>
-          <div className="button-row">
-            <button className="primary" onClick={importCSV}>
-              Import my holdings <ArrowRight size={16} />
-            </button>
-            <button onClick={() => go("Markets")}>Build a watchlist</button>
+        <section className="signal-hero">
+          <div className="signal-copy">
+            <span className="hero-kicker">
+              <span /> INDEPENDENT THINKING. INDIAN MARKETS.
+            </span>
+            <h2>
+              Find the signal.
+              <br />
+              <em>Own the decision.</em>
+            </h2>
+            <p>
+              A sharper view of your markets. Track the moves, challenge the
+              narrative, and turn a trading idea into something you can actually
+              examine.
+            </p>
+            <div className="hero-actions">
+              <button className="primary" onClick={() => go("Markets")}>
+                Open market workspace <ArrowUpRight size={18} />
+              </button>
+              <button onClick={importCSV}>
+                Import my holdings <ArrowRight size={16} />
+              </button>
+            </div>
+            <div className="hero-footnote">
+              <span className="hero-index">01 — YOUR EDGE STARTS HERE</span>
+              <button
+                className="text-button"
+                onClick={() => go("Integrations")}
+              >
+                Connect Kite <ArrowUpRight size={14} />
+              </button>
+            </div>
           </div>
-          <p className="subtle">
-            Already invest with Zerodha?{" "}
-            <button className="text-button" onClick={() => go("Integrations")}>
-              Connect Kite to sync holdings <ArrowUpRight size={14} />
-            </button>
-          </p>
+          <div className="signal-object">
+            <div className="orbital-scene" aria-hidden="true">
+              <div className="orbital-ring ring-one" />
+              <div className="orbital-ring ring-two" />
+              <div className="orbital-ring ring-three" />
+              <div className="orbital-core">
+                H<span>HEDGEWAY</span>
+              </div>
+              <span className="orbital-coordinate coordinate-one">
+                RESEARCH
+              </span>
+              <span className="orbital-coordinate coordinate-two">
+                PRICE ACTION
+              </span>
+              <span className="orbital-coordinate coordinate-three">
+                CONVICTION
+              </span>
+            </div>
+            <div className="signal-status">
+              <Radio size={16} />
+              <div>
+                <strong>
+                  {data.quotes.length
+                    ? `${data.quotes.length} market snapshots`
+                    : "Your feed is waiting"}
+                </strong>
+                <p>
+                  {data.quotes.length
+                    ? "Source timestamps travel with every quote."
+                    : "Connect your broker. No simulated prices."}
+                </p>
+              </div>
+              <button
+                className="icon-button"
+                aria-label="Connect market feed"
+                onClick={() => go("Integrations")}
+              >
+                <ArrowUpRight size={18} />
+              </button>
+            </div>
+          </div>
         </section>
+        <div className="launch-grid">
+          <button onClick={() => go("Setup scanner")}>
+            <span className="launch-icon">
+              <ScanLine size={23} />
+            </span>
+            <span>
+              <small>01 / PRICE ACTION</small>
+              <strong>Catch the setup.</strong>
+              <p>Your dip-and-rebound rules, made visible.</p>
+            </span>
+            <ArrowUpRight size={19} />
+          </button>
+          <button onClick={() => go("AI desk")}>
+            <span className="launch-icon">
+              <Sparkles size={23} />
+            </span>
+            <span>
+              <small>02 / RESEARCH INTELLIGENCE</small>
+              <strong>Challenge the story.</strong>
+              <p>Discuss the evidence. See what’s missing.</p>
+            </span>
+            <ArrowUpRight size={19} />
+          </button>
+          <button onClick={() => go("Strategy lab")}>
+            <span className="launch-icon">
+              <FlaskConical size={23} />
+            </span>
+            <span>
+              <small>03 / STRATEGY LAB</small>
+              <strong>Put it to the test.</strong>
+              <p>Real inputs. Explicit costs. Reproducible results.</p>
+            </span>
+            <ArrowUpRight size={19} />
+          </button>
+        </div>
+        <div className="section-header editorial-heading">
+          <div>
+            <span className="eyebrow">THE INFORMATION ADVANTAGE</span>
+            <h2>Beyond the price.</h2>
+          </div>
+          <span className="subtle">
+            Source-linked research / Primary markets
+          </span>
+        </div>
         <div className="two-columns">
           <Panel
             title="Latest research"
@@ -64,7 +166,7 @@ export default function Overview({
           >
             <div className="briefing-list">
               {data.articles.length ? (
-                data.articles.slice(0, 4).map((a) => (
+                data.articles.slice(0, 4).map((a, i) => (
                   <a
                     className="briefing-item"
                     key={a.id}
@@ -72,6 +174,9 @@ export default function Overview({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
+                    <span className="briefing-index">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
                     <div>
                       <small>{a.source}</small>
                       <h3>{a.title}</h3>

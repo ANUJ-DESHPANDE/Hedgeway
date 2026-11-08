@@ -27,7 +27,7 @@ describe("first-use and unavailable-data workflows (static component rendering)"
       />,
     );
     expect(html).toContain("Import my holdings");
-    expect(html).toContain("Build a watchlist");
+    expect(html).toContain("Open market workspace");
     expect(html).toContain("Open research");
     expect(html).not.toContain("PORTFOLIO VALUE");
   });

@@ -24,3 +24,7 @@ The first-use flow prioritizes reading research, following companies and importi
 A second scanner review preserves the exact scan when handing it to AI, labels changed form settings without rewriting results, updates stale states on a timer, and exports the original evidence. Reviewing history pauses auto-refresh, loads only the selected scan and scrolls its result into view. Scoped AI retrieval applies the company filter before the feed limit.
 
 The stylesheet includes mobile layouts, visible focus states, dark/light themes and reduced-motion handling. Desktop and mobile Chromium interaction tests exercise the primary workflows, including dialog focus during live updates. Screenshots of the overview, research, connections, AI desk and scanner were reviewed. Screen-reader and broader cross-browser acceptance remain separate deployment checks.
+
+## Visual and navigation redesign
+
+The permanent sidebar was replaced by a horizontal navigation deck and a searchable Explore control. The overview uses a dark graphite/orange palette, a strong typographic hierarchy, a decorative orbital graphic and direct actions for market watch, imports, setup analysis, research and testing. The graphic is not a market chart. It respects reduced-motion preferences. Market-strip values come only from stored broker quotes and carry timestamps; disconnected feeds do not generate prices. Mobile navigation scrolls horizontally, with Explore providing an alternative route to every page. Existing portfolio, import and scanner workflows remain available.

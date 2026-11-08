@@ -10,7 +10,7 @@ Hedgeway brings Indian equities, a personal portfolio, source-linked research an
 
 ![Hedgeway desktop overview showing real public research and IPO records](docs/images/overview-desktop.png)
 
-Captured on 7 November 2026 with public-source data and no connected brokerage account. [Mobile view](docs/images/overview-mobile.png).
+Captured on 8 November 2026 with public-source data and no connected brokerage account. [Mobile view](docs/images/overview-mobile.png).
 
 ## Open on Windows without Git
 

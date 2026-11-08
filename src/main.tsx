@@ -7,11 +7,9 @@ import {
   BookOpen,
   ChartNoAxesCombined,
   Check,
-  ChevronRight,
   FlaskConical,
   LayoutDashboard,
   LogOut,
-  Menu,
   Moon,
   Newspaper,
   Plug,
@@ -110,7 +108,6 @@ function App() {
     [loadError, setLoadError] = useState(""),
     [busy, setBusy] = useState(false),
     [toast, setToast] = useState<{ text: string; error: boolean } | null>(null),
-    [mobile, setMobile] = useState(false),
     [search, setSearch] = useState(false),
     [importing, setImporting] = useState(false),
     [version, setVersion] = useState(0);
@@ -149,7 +146,6 @@ function App() {
   const go = (p: Page) => {
     location.hash = encodeURIComponent(p);
     setPage(p);
-    setMobile(false);
   };
   useEffect(() => {
     const f = (e: KeyboardEvent) => {
@@ -329,68 +325,25 @@ function App() {
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      {mobile && (
-        <button
-          className="sidebar-scrim"
-          aria-label="Close navigation"
-          onClick={() => setMobile(false)}
-        />
-      )}
-      <aside className={`sidebar ${mobile ? "open" : ""}`}>
-        <a href="#Overview" className="brand" aria-label="Hedgeway overview">
-          <Logo />
-          hedgeway
-        </a>
-        <div className="workspace-label">
-          <span className="avatar">AD</span>
-          <div>
-            <strong>Personal workspace</strong>
-            <small>India · INR</small>
-          </div>
-          <span className="tiny-label">V2</span>
-        </div>
-        <nav aria-label="Main navigation">
-          {pages.map(({ name, icon: Icon, group }) => (
-            <React.Fragment key={name}>
-              {group && <div className="nav-group">{group}</div>}
-              <button
-                className={`nav-item ${page === name ? "selected" : ""}`}
-                onClick={() => go(name)}
-                aria-current={page === name ? "page" : undefined}
-              >
-                <Icon size={18} />
-                {name}
-                {name === "IPOs" && <span className="nav-badge">IN</span>}
-              </button>
-            </React.Fragment>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="connection-card">
-            <span
-              className={`status-dot ${streamStatus?.state === "live" ? "" : "amber"}`}
-            />
-            <div>
-              <strong>
-                {streamStatus?.state === "live"
-                  ? `${streamStatus.provider} prices connected`
-                  : "Your data connections"}
-              </strong>
-              <p>
-                {status?.kite.connected
-                  ? "Zerodha holdings connected"
-                  : "Manage prices and portfolio access"}
-              </p>
-            </div>
+      <header className="terminal-header">
+        <div className="terminal-top">
+          <a href="#Overview" className="brand" aria-label="Hedgeway overview">
+            <Logo />
+            <span className="brand-word">
+              HEDGEWAY<small>THE INVESTING LAB</small>
+            </span>
+          </a>
+          <span className="terminal-location">INDIA / NSE + BSE</span>
+          <div className="top-actions">
             <button
-              aria-label="Open integrations"
-              onClick={() => go("Integrations")}
+              className="search-button"
+              aria-label="Quick navigation"
+              onClick={() => setSearch(true)}
             >
-              <ArrowUpRight size={17} />
+              <Search size={16} />
+              <span>Explore</span>
+              <kbd>Ctrl K</kbd>
             </button>
-          </div>
-          <div className="sidebar-footer">
-            <span>Built for a clearer view.</span>
             <button
               className="icon-button"
               aria-label={
@@ -400,47 +353,20 @@ function App() {
               }
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
             </button>
-          </div>
-        </div>
-      </aside>
-      <div className="main-shell">
-        <header className="topbar">
-          <div className="breadcrumb">
             <button
-              className="icon-button mobile-menu"
-              aria-label="Open navigation"
-              onClick={() => setMobile(true)}
+              className="terminal-connect"
+              onClick={() => go("Integrations")}
             >
-              <Menu size={20} />
-            </button>
-            <span>Workspace</span>
-            <ChevronRight size={14} />
-            <strong>{page}</strong>
-          </div>
-          <div className="top-actions">
-            <button className="search-button" onClick={() => setSearch(true)}>
-              <Search size={15} />
-              <span>Quick navigation</span>
-              <kbd>
-                {/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ K" : "Ctrl K"}
-              </kbd>
-            </button>
-            <span className="region">
               <span
                 className={`status-dot ${streamStatus?.state === "live" ? "" : "amber"}`}
               />
               {streamStatus?.state === "live"
-                ? `${streamStatus.provider} streaming`
-                : streamStatus?.state === "connecting" ||
-                    streamStatus?.state === "reconnecting"
-                  ? "Connecting prices…"
-                  : streamStatus?.state === "connected"
-                    ? "Waiting for prices"
-                    : "Prices not connected"}
-            </span>
-            <span className="avatar small">AD</span>
+                ? "FEED CONNECTED"
+                : "CONNECT FEED"}
+              <ArrowUpRight size={14} />
+            </button>
             {!session.local && (
               <button
                 className="icon-button"
@@ -455,7 +381,70 @@ function App() {
               </button>
             )}
           </div>
-        </header>
+        </div>
+        <nav className="terminal-nav" aria-label="Main navigation">
+          {pages.map(({ name, icon: Icon }) => (
+            <button
+              key={name}
+              className={`nav-item ${page === name ? "selected" : ""}`}
+              onClick={() => go(name)}
+              aria-current={page === name ? "page" : undefined}
+            >
+              <Icon size={15} />
+              {name}
+            </button>
+          ))}
+        </nav>
+      </header>
+      <div className="market-ribbon" aria-label="Market feed snapshots">
+        <span className="ribbon-label">
+          <span
+            className={`status-dot ${streamStatus?.state === "live" ? "" : "amber"}`}
+          />
+          {streamStatus?.state === "live"
+            ? "LIVE FEED"
+            : data?.quotes.length
+              ? "LAST SNAPSHOTS"
+              : "MARKET FEED"}
+        </span>
+        <div className="ribbon-items">
+          {data?.quotes.length ? (
+            data.quotes.slice(0, 12).map((q) => (
+              <button
+                key={`${q.exchange}:${q.symbol}`}
+                onClick={() => go("Markets")}
+              >
+                <strong>
+                  {q.exchange}:{q.symbol}
+                </strong>
+                <span>₹{q.price.toLocaleString("en-IN")}</span>
+                <span className={q.change >= 0 ? "positive" : "negative"}>
+                  {q.change > 0 ? "+" : ""}
+                  {q.change.toFixed(2)}%
+                </span>
+                <small>
+                  {new Date(q.asOf).toLocaleString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    timeZone: "Asia/Kolkata",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}{" "}
+                  IST
+                </small>
+              </button>
+            ))
+          ) : (
+            <span className="ribbon-empty">
+              Your market, in real time.
+              <span>Connect Upstox or Kite to bring this strip to life.</span>
+            </span>
+          )}
+        </div>
+      </div>
+      <div
+        className={`main-shell ${page === "Overview" ? "overview-shell" : ""}`}
+      >
         <main id="main">
           <div className="page-heading">
             <div>
@@ -465,7 +454,6 @@ function App() {
             </div>
           </div>
           {[
-            "Overview",
             "Markets",
             "Portfolio",
             "Strategy lab",

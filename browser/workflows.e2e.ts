@@ -308,3 +308,21 @@ test("populated scanner explains its checks, plan and AI handoff", async ({
   expect(sent.scanId).toBe(result.id);
   expect(sent.symbol).toBe("INFY");
 });
+
+test("Explore reaches a page without scrolling through navigation", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Quick navigation", exact: true })
+    .click();
+  await page.getByLabel("Search pages").fill("Journal");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Journal/ })
+    .click();
+  await expect(
+    page.getByRole("main").getByRole("heading", { level: 1 }),
+  ).toHaveText("Journal");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
