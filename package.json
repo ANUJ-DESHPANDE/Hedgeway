@@ -48,7 +48,7 @@
     "@types/supertest": "^6.0.0",
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^5.0.0",
-    "concurrently": "^9.0.0",
+    "concurrently": "^10.0.6",
     "prettier": "^3.9.10",
     "supertest": "^7.0.0",
     "typescript": "^5.9.0",
