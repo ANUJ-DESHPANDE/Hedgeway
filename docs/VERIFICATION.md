@@ -1,36 +1,46 @@
 # Verification record
 
-Verified in the build workspace on 8 November 2026 UTC. This records observed checks, not a production certification.
+Checked on 11 November 2026. This records executed checks, not a production certification or a guarantee of trading performance.
 
 ## Automated checks
 
-- `npm run check`: **99 tests across 9 files passed**, TypeScript strict checking passed, and the Vite production build completed.
-- Coverage includes transaction rollback, exchange/symbol isolation, missing-price behavior, CSV validation, future-data independence, trading costs, secret encryption/tamper rejection, session expiry/revocation, request-origin enforcement, callback-state rejection, FTS/deduplication, IPO cooldown/provenance, credential lifecycle, binary feed decoding, a mocked stream-to-database-to-alert pipeline, intraday incomplete/future-bar exclusion, stale/gapped candles, cost-aware sizing, AI citation validation, evidence privacy, exact-scan/exchange grounding, scoped research retrieval, reproducible session capture, lazy scan-history retrieval and model failure recovery.
-- `npm audit --audit-level=moderate`: **0 reported vulnerabilities** at the time of verification. This is a dependency advisory check, not a penetration test.
-- The main frontend JavaScript bundle was approximately **244.5 kB / 78 kB gzip**. Chart code is a separate approximately **398 kB / 115.8 kB gzip** chunk. Pages are lazy loaded. These are build sizes, not measured browser performance scores.
-- SQLite online backup completed; the reopened backup returned `PRAGMA integrity_check = ok` and preserved 80 ingested articles and 98 stored IPO snapshots.
-- Tracked-file inspection confirmed that environment secrets, account tokens, runtime databases and build artifacts were excluded from Git.
+- **111 tests across 10 files**, strict TypeScript checking and the Vite production build passed. Tests cover financial calculations, imports/transactions, exchange isolation, provider contracts, feed timestamps, encryption/authentication, binary streams, complete/stale candles, reproducibility, source citations/privacy, Gemini request routing, quota failures, one bounded service retry, chart indicators and calendar export.
+- **16 Playwright cases** passed across desktop and mobile Chrome emulation. They cover all ten pages, navigation, import preview/save/delete, modal focus, unavailable-provider behavior, sourced AI answers, scanner history/export/AI handoff, chart controls/downloads and learning handoff. AI/chart/scanner fixtures are isolated in the test suite.
+- Dependency audit: **0 reported vulnerabilities** at verification time. This is not a penetration test.
+- Main frontend bundle: approximately **245.6 kB / 78.4 kB gzip**. Lightweight Charts component chunk: **182.4 kB / 59 kB gzip**; existing Recharts chunk: **398.4 kB / 115.8 kB gzip**. Pages/chart code are lazy loaded; these are build sizes, not browser performance scores.
+- Online SQLite backup completed and its integrity check returned `ok`. The runtime database also passed `quick_check` following an environment interruption.
+- Inspection of tracked/new files found no supplied Upstox token, Gemini key or encryption key. Runtime configuration, databases and backups are excluded from Git and container build context.
 
-## Deployment and workflow checks
+## Real market-data acceptance
 
-The production image built successfully and the isolated container smoke test passed: non-root user, read-only root filesystem, static frontend delivery, health check, unauthenticated API rejection, secure session cookie flags, foreign-origin rejection, empty real-data state, authenticated SSE, persistence across container restart and logout revocation. The smoke test creates and removes its own temporary database volume.
+An authorized Upstox Analytics Token was validated and stored encrypted. Exact instrument lookup, REST quotes and V3 WebSocket authorization/subscription succeeded for Reliance, Infosys and HDFC Bank. The socket received actual price frames. Historical endpoints returned 495 daily close observations for the strategy adapter, and the chart endpoint returned 375 one-minute, 125 three-minute, 75 five-minute and 248 daily OHLCV candles for Reliance during the checks.
 
-Additional workflow regressions cover import preview without mutation, company-name discovery without fabricated prices, BSE scrip-code normalization, useful first-use screens, unavailable Reddit setup and disabled experiments without a price source. Static component checks are supplemented by **14 Playwright browser cases across desktop Chrome and mobile Chrome emulation**: all ten screens, searchable Explore navigation, horizontal overflow and page errors, CSV preview/save/delete, focus persistence during live updates and Escape restoration, disconnected AI/scanner states, cited AI reports/follow-ups, and scanner results with exact-scan AI handoff, changed-setting warnings, automatic stale labels, saved-scan retrieval and original-evidence export. Populated AI/scanner interactions use explicit isolated test fixtures, not a live provider account.
+Verification occurred outside the active trading session. Last-trade timestamps were retained, and the stream was correctly labeled as older snapshots. This does **not** establish market-hour latency, long-run reconnect behavior or equivalence to the Kite client. The real scanner returned a stale result after market close instead of an actionable current setup.
 
-Desktop and mobile screenshots were reviewed using real ingested public content. Review led to clearer first-use states, replacement of unsupported text glyphs, active-first IPO ordering and a fix for hidden numeric fields blocking scanner submission. This is not a comprehensive assistive-technology audit.
+Live testing found and fixed Upstox's search-page limit and the difference between after-close OHLC close, daily net change and last-trade time. Regression tests cover both.
 
-## Public-provider checks
+Desktop and mobile screenshots in `docs/images/markets-*.jpg` show actual provider candles. Both viewport widths passed the real-data horizontal-overflow check. A mobile issue involving an absolutely positioned table label was fixed by containing it in the scroll wrapper. Source-coverage information is now visible on mobile.
 
-A real ingestion pass successfully received 50 Economic Times articles and 30 ValuePickr forum topics. The Xflot list endpoint returned 100 records, stored by issue identity; an IPO detail request returned 14 reported GMP observations. That issue returned no category subscription observations, and no substitute values were generated.
+## Real research and AI acceptance
 
-A subsequent refresh added nine new Economic Times articles, deduplicated already stored ValuePickr topics, and refreshed 100 IPO records. Moneycontrol returned HTTP 403 in this environment. The job was recorded as failed while the other providers continued. Provider availability and coverage can change independently of Hedgeway.
+A live ingestion pass stored 60 NSE disclosure items, 10 RBI releases, 30 TradingQnA topics, 35 Mint items, 50 new Economic Times items and four new ValuePickr topics, in addition to earlier stored content. NSE and RBI publish timezone-less dates: their adapters explicitly interpret them as IST. Moneycontrol returned HTTP 403; its failure stays visible while other feeds continue.
 
-## Acceptance checks still requiring the intended environment
+These adapters read public RSS headlines/excerpts and link to original articles/documents. They do not claim exhaustive scraping, full PDF/article reading, all forum comments or representative trader sentiment.
 
-- Account-authorized Upstox streaming/history and a complete Kite login/holdings sync. Protocol and boundary tests use isolated fixtures; they do not prove a brokerage account's entitlement or real market-hour latency.
-- Approved Reddit OAuth access; no Reddit credentials were available.
-- A paid OpenAI Responses request with an authorized API key. Contract, privacy and UI tests isolate model responses; they do not establish model accuracy or account/model access.
-- Comprehensive assistive-technology review, additional browser engines and intended-device acceptance.
-- Public HTTPS deployment, certificate validation, market-hour reconnect/expiry behavior and sustained uptime. Deployment files are supplied; no externally hosted installation is claimed.
+The supplied Google key passed model-access validation and was encrypted. The user confirmed the Google project was Free tier. Gemini Flash-Lite completed a real source-grounded INFY learning request (941 input tokens, 575 output tokens). An independent minimal generation request also succeeded. Some fuller requests returned HTTP 503; the app now retries temporary 502/503/504 errors once within the same timeout and then preserves the question with a clear error. It does not change to a paid provider. Google service availability and quotas remain outside Hedgeway's control.
 
-CI runs the unit/API checks, desktop/mobile browser workflows, dependency audit, container build and the isolated container smoke test on pushes and pull requests. See the repository's Actions tab for the status of the exact commit being reviewed.
+Gemini 3.8 Flash and 3.5 Flash-Lite are the explicit supported models. The workspace was switched to Flash-Lite during acceptance checks. Free API use depends on Google's project tier and terms, not just the model name. No billing was enabled.
+
+## Deployment and operations
+
+The production container built. Its first startup smoke attempt hit this cloud workspace's disk limit; disposable Docker build cache was removed, and the retry passed: non-root user, read-only root filesystem, static frontend, health, unauthenticated API rejection, secure cookies, CSRF rejection, empty real-data state, SSE, persistent SQLite after restart and logout revocation.
+
+GitHub Actions repeats tests, production build, dependency audit, desktop/mobile browser checks, container build and runtime smoke tests for the pushed commit. Consult its exact commit status before treating a release as verified.
+
+## Remaining environment/account acceptance
+
+- Sustained live-market streaming, expiry/reconnect behavior and intended-PC acceptance.
+- Kite account login/holdings sync and approved Reddit OAuth credentials.
+- Comprehensive assistive-technology checks and additional browser engines.
+- Public HTTPS hosting and uptime: deployment artifacts are included; no externally hosted installation is claimed.
+- AI accuracy is not established by a valid source ID or passing integration tests. Review original material and recognize coverage gaps before making decisions.

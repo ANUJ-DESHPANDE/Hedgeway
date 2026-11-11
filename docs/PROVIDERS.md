@@ -29,3 +29,13 @@ Portfolio custody and market-data delivery need not use the same provider. A use
 - Freqtrade's look-ahead analysis: the importance of future-data independence; the tests mutate future observations and assert past outputs do not change.
 
 These are design references, not copied implementations. Hedgeway prioritizes a coherent, testable personal workflow over claiming every feature found in those projects.
+
+## November 11 integration update
+
+Upstox account-authorized quote, instrument search, daily history, intraday candles and V3 WebSocket requests succeeded in the build workspace. Search uses the supported 20-record page size. REST daily change comes from `net_change`, avoiding an after-close `ohlc.close` ambiguity; quote freshness uses `last_trade_time`. Closed-market snapshots are distinct from recent trades. No trading/order endpoints were added.
+
+Yahoo Finance is an **explicit optional research provider**, using the public chart endpoint directly from Node rather than requiring Python/yfinance. NSE `.NS` instruments only; no guaranteed latency or uptime, no automatic live-feed fallback, 60-second caching and five-minute backoff after HTTP 429. BSE codes are not guessed. Research snapshots cannot produce a current scanner entry signal or trigger live alerts. Yahoo returned HTTP 429 during the earlier workspace probe; a recent tick rate is not claimed.
+
+[Google Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing), checked November 11, lists free-tier input/output for `gemini-3.8-flash` and `gemini-3.5-flash-lite`. Gemini 3.8 Flash is now the AI default. Use a free-tier project **without billing enabled**; Hedgeway cannot inspect Google's billing settings. No Google Search grounding, paid-model fallback or automatic AI calls are enabled. Free-tier submissions may be used to improve Google's products. The old OpenAI adapter remains explicitly selectable through server configuration for compatibility; it is not the default or a fallback.
+
+Charts use [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts) under Apache-2.0 with its attribution visible. A company can be opened in TradingView for independent inspection. Candle CSV, Markdown learning notes and iCalendar IPO dates provide portable integration with spreadsheets, note applications and calendars without account linking.

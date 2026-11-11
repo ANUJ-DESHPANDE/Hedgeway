@@ -1,3 +1,4 @@
+import { ipoCalendar } from "../calendar";
 import { AlertTriangle, ArrowUpRight, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -91,6 +92,27 @@ export default function IPOView({
           <RefreshCw size={15} />
           Refresh IPOs
         </button>
+      </div>
+      <div className="button-row calendar-export">
+        <button
+          disabled={!list.some((p) => p.openDate || p.closeDate)}
+          onClick={() => {
+            const url = URL.createObjectURL(
+              new Blob([ipoCalendar(list)], { type: "text/calendar" }),
+            );
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "hedgeway-ipo-dates.ics";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          Add dates to my calendar
+        </button>
+        <span className="subtle">
+          Downloads the filtered issues for Apple Calendar, Google Calendar or
+          Outlook. Verify broker cut-off times.
+        </span>
       </div>
       <div className="notice">
         <AlertTriangle size={16} />

@@ -1,11 +1,13 @@
 import { BookOpen, Bookmark, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, post, remove } from "../api";
+import { api, post, remove, timestamp } from "../api";
 import type { Article, Mode } from "../types";
 import type { Action, Page } from "../navigation";
 import { Empty, Panel, Story } from "../ui";
 export default function Research({
   mode,
+  seed = "",
+  learn,
   action,
   busy,
   version,
@@ -13,14 +15,37 @@ export default function Research({
   go,
 }: {
   mode: Mode;
+  seed?: string;
+  learn?: (symbol: string) => void;
   action: Action;
   busy: boolean;
   version: number;
   redditReady: boolean;
   go: (page: Page) => void;
 }) {
+  const [sources, setSources] = useState<
+    {
+      name: string;
+      category: string;
+      status: string;
+      count: number;
+      newest: string | null;
+      message: string;
+    }[]
+  >([]);
+  useEffect(() => {
+    let active = true;
+    api("/research/sources")
+      .then((s) => {
+        if (active) setSources(s);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [version]);
   const [items, setItems] = useState<Article[]>([]),
-    [query, setQuery] = useState(""),
+    [query, setQuery] = useState(seed),
     [kind, setKind] = useState(""),
     [saved, setSaved] = useState(false),
     [error, setError] = useState(""),
@@ -59,6 +84,7 @@ export default function Research({
           {[
             ["", "All sources"],
             ["article", "Articles"],
+            ["official", "Official disclosures"],
             ["forum", "Forums"],
           ].map(([v, t]) => (
             <button
@@ -71,6 +97,14 @@ export default function Research({
           ))}
         </div>
         <div className="button-row">
+          <button
+            disabled={!items.length}
+            onClick={() =>
+              learn?.(/^[A-Z0-9&_.-]{1,30}$/.test(query) ? query : "")
+            }
+          >
+            Help me understand this research
+          </button>
           <button
             disabled={busy}
             onClick={() =>
@@ -194,23 +228,33 @@ export default function Research({
               </p>
               <hr />
               <h4>Sources in your workspace</h4>
-              <ul className="source-list">
-                <li>
-                  <span className="source-dot" />
-                  Economic Times Markets
-                </li>
-                <li>
-                  <span className="source-dot" />
-                  Moneycontrol Business
-                </li>
-                <li>
-                  <span className="source-dot blue" />
-                  ValuePickr community
-                </li>
-                <li>
-                  <span className="source-dot orange" />
-                  Reddit · account connection required
-                </li>
+              <ul className="source-health-list">
+                {sources.map((s) => (
+                  <li key={s.name}>
+                    <div>
+                      <strong>{s.name}</strong>
+                      <span
+                        className={`tag ${s.status === "error" ? "amber" : ""}`}
+                      >
+                        {s.category === "official"
+                          ? "Official disclosure"
+                          : s.category === "community"
+                            ? "Trader opinions"
+                            : "Reporting"}
+                      </span>
+                    </div>
+                    <small>
+                      {s.count} stored items · latest {timestamp(s.newest)}
+                    </small>
+                    {s.status === "error" ? (
+                      <p className="subtle">
+                        Unavailable on last refresh: {s.message}
+                      </p>
+                    ) : s.status === "not_fetched" ? (
+                      <p className="subtle">Not fetched yet</p>
+                    ) : null}
+                  </li>
+                ))}
               </ul>
               <p>
                 Open the original article before acting. Forums contain

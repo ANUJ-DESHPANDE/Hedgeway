@@ -326,3 +326,72 @@ test("Explore reaches a page without scrolling through navigation", async ({
   ).toHaveText("Journal");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+test("market candles support exploration, exports and a learning handoff", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  const bars = Array.from({ length: 75 }, (_, i) => ({
+    time: new Date(
+      Date.parse("2026-11-11T03:45:00Z") + i * 300000,
+    ).toISOString(),
+    open: 100 + i * 0.1,
+    high: 101 + i * 0.1,
+    low: 99 + i * 0.1,
+    close: 100.5 + i * 0.1,
+    volume: 1000 + i * 10,
+  }));
+  await page.route("**/api/watchlist", (route) =>
+    route.fulfill({
+      json: [
+        {
+          symbol: "INFY",
+          exchange: "NSE",
+          created_at: new Date().toISOString(),
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/market/chart?*", (route) =>
+    route.fulfill({
+      json: {
+        symbol: "INFY",
+        exchange: "NSE",
+        interval: new URL(route.request().url()).searchParams.get("interval"),
+        bars,
+        source: "Isolated chart fixture",
+        fetchedAt: new Date().toISOString(),
+      },
+    }),
+  );
+  await page.goto("/");
+  await navigate(page, "Markets");
+  await expect(page.locator(".candle-canvas canvas").first()).toBeVisible();
+  await page.getByRole("button", { name: "Line", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Line", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Session VWAP", exact: true }).click();
+  await page.getByLabel("Average window", { exact: true }).selectOption("50");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download candle CSV" }).click();
+  expect((await download).suggestedFilename()).toContain("INFY");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  await expect(page.getByLabel("Focus symbol · optional")).toHaveValue("INFY");
+  await expect(
+    page.getByRole("button", { name: /Teach me Plain English/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("button", { name: /Challenge my thinking Assumptions/ })
+    .click();
+  await expect(
+    page.getByRole("button", { name: /Challenge my thinking Assumptions/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(errors).toEqual([]);
+});

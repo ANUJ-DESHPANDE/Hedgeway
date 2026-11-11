@@ -4,8 +4,15 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { DB } from "./db/index.js";
 import { row, rows } from "./db/index.js";
-import { aiStatus, askAI, buildEvidence, saveAI } from "./intelligence.js";
+import {
+  aiProvider,
+  aiStatus,
+  askAI,
+  buildEvidence,
+  saveAI,
+} from "./intelligence.js";
 import { analyzeSetup, defaultSetup } from "../src/trading.js";
+import { chartData } from "./providers/chart.js";
 import { intraday } from "./providers/intraday.js";
 const symbol = z
   .string()
@@ -24,19 +31,35 @@ const parameters = z.object({
   riskBudget: z.number().positive().max(1e7),
 });
 export function decisionRoutes(app: express.Express, db: DB) {
+  app.get("/api/market/chart", async (req, res) => {
+    const v = z
+      .object({
+        symbol,
+        exchange: z.enum(["NSE", "BSE"]).default("NSE"),
+        interval: z.enum(["1", "3", "5", "1d"]).default("5"),
+      })
+      .parse(req.query);
+    res.json({
+      ...(await chartData(db, v.symbol, v.exchange, v.interval)),
+      symbol: v.symbol,
+      exchange: v.exchange,
+      interval: v.interval,
+    });
+  });
   app.get("/api/ai/status", (_req, res) => res.json(aiStatus(db)));
   app.post("/api/ai/credentials", async (req, res) => {
     const v = z
       .object({
         key: z.string().trim().min(20).max(6000),
-        model: z.string().regex(/^gpt-[a-zA-Z0-9.-]{1,80}$/),
+        model: z.string().regex(/^(gemini|gpt)-[a-zA-Z0-9.-]{1,80}$/),
+        provider: z.enum(["gemini", "openai"]).default("gemini"),
       })
       .parse(req.body);
-    await saveAI(db, v.key, v.model);
+    await saveAI(db, v.key, v.model, v.provider);
     res.json({ ok: true });
   });
   app.delete("/api/ai/credentials", (_req, res) => {
-    db.prepare("DELETE FROM credentials WHERE provider='openai'").run();
+    db.prepare("DELETE FROM credentials WHERE provider=?").run(aiProvider(db));
     res.json({ ok: true });
   });
   app.get("/api/ai/coverage", (req, res) =>
@@ -52,7 +75,10 @@ export function decisionRoutes(app: express.Express, db: DB) {
     "/api/ai/ask",
     rateLimit({
       windowMs: 3600000,
-      limit: 30,
+      limit: Math.max(
+        1,
+        Math.min(120, Number(process.env.AI_REQUESTS_PER_HOUR) || 120),
+      ),
       message: {
         error:
           "The hourly AI limit has been reached. Please try again after the current hour-long window resets.",
@@ -64,6 +90,8 @@ export function decisionRoutes(app: express.Express, db: DB) {
       const input = z
         .object({
           question: z.string().trim().min(5).max(4000),
+          approach: z.enum(["learn", "research", "challenge"]).default("learn"),
+          refreshResearch: z.boolean().default(true),
           symbol: z.union([symbol, z.literal("")]).default(""),
           includePortfolio: z.boolean().default(false),
           threadId: z.string().uuid().optional(),
@@ -110,11 +138,9 @@ export function decisionRoutes(app: express.Express, db: DB) {
       z.string().uuid().parse(req.params.id),
     );
     if (!saved)
-      return res
-        .status(404)
-        .json({
-          error: "That saved scan is no longer available. Run a new check.",
-        });
+      return res.status(404).json({
+        error: "That saved scan is no longer available. Run a new check.",
+      });
     res.json(JSON.parse(saved.payload));
   });
   app.post("/api/scanner", async (req, res) => {
@@ -144,6 +170,21 @@ export function decisionRoutes(app: express.Express, db: DB) {
           fetchedAt: data.fetchedAt,
           createdAt: new Date().toISOString(),
         };
+        if (data.source.startsWith("Yahoo") && analysis.metrics) {
+          analysis.state = "stale";
+          analysis.summary =
+            "Research snapshot only — Yahoo is not a live broker feed. These conditions are not a current entry signal.";
+          analysis.checks = analysis.checks.map((c) =>
+            c.label === "Complete, recent bars"
+              ? {
+                  ...c,
+                  passed: false,
+                  detail:
+                    "Yahoo research snapshots have no guaranteed delivery latency.",
+                }
+              : c,
+          );
+        }
         db.prepare("INSERT INTO scanner_runs VALUES(?,?,?,?,?)").run(
           analysis.id,
           item.symbol,

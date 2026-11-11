@@ -36,6 +36,7 @@ export default function Integrations({
   const failures = [...recent.values()].filter(
     (j) => j.status === "error",
   ).length;
+  const isYahoo = status.marketProvider === "yahoo";
   const isKite = status.marketProvider === "kite";
   return (
     <>
@@ -56,6 +57,9 @@ export default function Integrations({
                 )
               }
             >
+              <option value="yahoo">
+                Yahoo research · no account · NSE snapshots
+              </option>
               <option value="upstox">
                 Upstox · free · Upstox account required
               </option>
@@ -63,17 +67,37 @@ export default function Integrations({
             </select>
           </label>
           <p>
-            {isKite
-              ? "Use Kite for both your holdings and prices. Live prices and history need its market-data plan."
-              : "Upstox provides a free, read-only Analytics Token. This is a key for market data; Hedgeway does not place trades."}
+            {isYahoo
+              ? "No signup or API key. Unofficial NSE snapshots and historical candles; timing and availability are not guaranteed. Select Yahoo explicitly; it never substitutes for a failed broker feed."
+              : isKite
+                ? "Use Kite for both your holdings and prices. Live prices and history need its market-data plan."
+                : "Upstox provides a free, read-only Analytics Token. This is a key for market data; Hedgeway does not place trades."}
           </p>
           <p className="subtle">
-            After connecting, add companies in Markets. Prices start updating
-            automatically.
+            {isYahoo
+              ? "Add NSE companies in Markets, then select Refresh quotes. Yahoo supports 1-minute and 5-minute research candles, with no BSE ticker mapping."
+              : "After connecting, add companies in Markets. Prices start updating automatically."}
           </p>
         </div>
       </Panel>
-      {!isKite && (
+      {isYahoo && (
+        <Panel
+          title="Research without an account"
+          sub="No fabricated data. No paid fallback."
+        >
+          <div className="integration-body">
+            <p>
+              Yahoo may rate-limit requests. Quotes are cached for one minute.
+              Intraday results stay labelled historical/research even if recent;
+              use an entitled broker for live entry timing.
+            </p>
+            <button className="primary" onClick={() => go("Markets")}>
+              Add NSE companies <ArrowRight size={16} />
+            </button>
+          </div>
+        </Panel>
+      )}
+      {!isKite && !isYahoo && (
         <Panel
           title="2. Connect Upstox"
           sub={

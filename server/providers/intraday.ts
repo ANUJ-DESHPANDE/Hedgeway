@@ -1,3 +1,4 @@
+import { yahooIntraday } from "./yahoo.js";
 import { z } from "zod";
 import type { DB } from "../db/index.js";
 import type { IntradayBar } from "../../src/trading.js";
@@ -44,6 +45,7 @@ export async function intraday(
   minutes: number,
 ) {
   const provider = marketProvider(db);
+  if (provider === "yahoo") return yahooIntraday(db, symbol, exchange, minutes);
   return cached(
     db,
     `intraday:${provider}:${exchange}:${symbol}:${minutes}`,

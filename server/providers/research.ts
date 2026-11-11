@@ -4,11 +4,42 @@ import { z } from "zod";
 import type { Article } from "../../src/types.js";
 import { sentiment } from "../analytics.js";
 import type { DB } from "../db/index.js";
-import { rows, transaction } from "../db/index.js";
+import { row, rows, transaction } from "../db/index.js";
 import { instruments } from "../instruments.js";
 import { safeUrl } from "../security.js";
 import { cached, fetchText, json } from "./http.js";
 export const feeds = [
+  {
+    id: "nse",
+    name: "NSE corporate disclosures",
+    url: "https://nsearchives.nseindia.com/content/RSS/Online_announcements.xml",
+    kind: "article",
+    timezone: "+0530",
+    category: "official",
+  },
+  {
+    id: "rbi",
+    name: "Reserve Bank of India",
+    url: "https://www.rbi.org.in/pressreleases_rss.xml",
+    kind: "article",
+    timezone: "+0530",
+    category: "official",
+  },
+  {
+    id: "tradingqna",
+    name: "TradingQnA",
+    url: "https://tradingqna.com/latest.rss",
+    kind: "forum",
+    category: "community",
+  },
+  {
+    id: "mint",
+    name: "Mint Markets",
+    url: "https://www.livemint.com/rss/markets",
+    kind: "article",
+    category: "reporting",
+  },
+
   {
     id: "et",
     name: "Economic Times Markets",
@@ -32,12 +63,16 @@ const clean = (s: unknown) =>
   String(s ?? "")
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
     .replace(/\s+/g, " ")
     .trim();
 export function parseFeed(
   xml: string,
   source: string,
   kind: string,
+  timezone?: string,
 ): Article[] {
   if (/<!DOCTYPE|<!ENTITY/i.test(xml))
     throw new Error("Unsupported XML declaration");
@@ -58,9 +93,16 @@ export function parseFeed(
     const title = clean(item.title?.["#text"] ?? item.title);
     if (!url || !title) return [];
     const rawDate = item.pubDate || item.published || item.updated;
-    const date = new Date(rawDate);
+    const dated = String(rawDate || "");
+    const date = new Date(
+      timezone && !/(?:Z|GMT|UTC|[+-]\d{2}:?\d{2})$/i.test(dated.trim())
+        ? `${dated} ${timezone}`
+        : dated,
+    );
     if (!rawDate || Number.isNaN(date.getTime())) return [];
-    const summary = clean(item.description || item.summary || "").slice(0, 280);
+    const summary = clean(
+      item.description || item.summary || item["content:encoded"] || "",
+    ).slice(0, 1200);
     const haystack = `${title} ${summary}`.toUpperCase();
     return [
       {
@@ -139,20 +181,25 @@ export async function runJob(
   }
 }
 export async function ingestNews(db: DB) {
-  const results = [];
-  for (const feed of feeds)
-    results.push(
-      await runJob(db, feed.name, async () =>
+  return Promise.all(
+    feeds.map((feed) =>
+      runJob(db, feed.name, async () =>
         storeArticles(
           db,
-          await cached(db, `rss:${feed.id}`, 5 * 60_000, async () =>
-            parseFeed(await fetchText(feed.url), feed.name, feed.kind),
+          await cached(db, `rss:${feed.id}`, 5 * 60000, async () =>
+            parseFeed(
+              await fetchText(feed.url),
+              feed.name,
+              feed.kind,
+              feed.timezone,
+            ),
           ),
         ),
       ),
-    );
-  return results;
+    ),
+  );
 }
+
 export async function ingestReddit(db: DB) {
   return runJob(db, "Reddit", async () => {
     if (!process.env.REDDIT_CLIENT_ID || !process.env.REDDIT_CLIENT_SECRET)
@@ -236,7 +283,13 @@ export function getArticles(
     );
     args.push(terms);
   }
-  if (kind) {
+  if (kind === "official") {
+    const official = feeds
+      .filter((f) => f.category === "official")
+      .map((f) => f.name);
+    clauses.push(`a.source IN (${official.map(() => "?").join(",")})`);
+    args.push(...official);
+  } else if (kind) {
     clauses.push("a.kind=?");
     args.push(kind);
   }
@@ -268,4 +321,34 @@ export function getArticles(
     sentiment: a.sentiment,
     saved: !!a.saved,
   }));
+}
+
+export function sourceCategory(source: string, kind: string) {
+  return (
+    feeds.find((f) => f.name === source)?.category ||
+    (kind === "forum" ? "community" : "reporting")
+  );
+}
+export function researchSources(db: DB) {
+  return feeds.map((f) => {
+    const job = row<{ status: string; message: string; finished_at: string }>(
+      db,
+      "SELECT status,message,finished_at FROM jobs WHERE provider=? ORDER BY started_at DESC LIMIT 1",
+      f.name,
+    );
+    const counts = row<{ count: number; newest: string | null }>(
+      db,
+      "SELECT count(*) AS count,max(published_at) AS newest FROM articles WHERE source=?",
+      f.name,
+    )!;
+    return {
+      name: f.name,
+      category: sourceCategory(f.name, f.kind),
+      url: f.url,
+      ...counts,
+      status: job?.status || "not_fetched",
+      lastFetched: job?.finished_at || null,
+      message: job?.message || "",
+    };
+  });
 }

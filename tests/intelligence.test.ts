@@ -5,6 +5,7 @@ import { askAI, buildEvidence, validateAnswer } from "../server/intelligence";
 import { storeArticles } from "../server/providers/research";
 const databases: ReturnType<typeof openDatabase>[] = [];
 function setup() {
+  vi.stubEnv("AI_PROVIDER", "openai");
   const db = openDatabase(":memory:");
   databases.push(db);
   storeArticles(db, [
@@ -112,7 +113,7 @@ describe("evidence-grounded AI boundary", () => {
         symbol: "",
         includePortfolio: false,
       }),
-    ).rejects.toThrow("Connect");
+    ).rejects.toThrow("not connected");
     expect(fetch).not.toHaveBeenCalled();
     expect(row<any>(db, "SELECT count(*) n FROM ai_runs")!.n).toBe(0);
   });
@@ -337,4 +338,146 @@ it("finds symbol-tagged research beyond the general feed's latest 150 rows", () 
   const packet = buildEvidence(db, "INFY", false, now);
   expect(packet.coverage.items).toBe(1);
   expect(packet.sources[0].title).toBe("Infosys reports quarterly results");
+});
+
+describe("free Gemini and learning conversations", () => {
+  it("defaults to Gemini even when a legacy paid-provider key is present", async () => {
+    const { aiStatus } = await import("../server/intelligence");
+    const db = setup();
+    vi.stubEnv("AI_PROVIDER", "");
+    vi.stubEnv("OPENAI_API_KEY", "legacy-key");
+    vi.stubEnv("GEMINI_API_KEY", "");
+    expect(aiStatus(db).provider).toBe("gemini");
+    expect(aiStatus(db).configured).toBe(false);
+  });
+  it("sends source-grounded learning requests to Gemini and preserves concepts for follow-ups", async () => {
+    const db = setup();
+    vi.stubEnv("AI_PROVIDER", "gemini");
+    vi.stubEnv("GEMINI_API_KEY", "test-gemini-key");
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              finishReason: "STOP",
+              content: { parts: [{ text: JSON.stringify(answer) }] },
+            },
+          ],
+          usageMetadata: { promptTokenCount: 50, candidatesTokenCount: 30 },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const result = await askAI(db, {
+      question: "Teach me how to interpret the news",
+      symbol: "INFY",
+      includePortfolio: false,
+      approach: "learn",
+    });
+    expect(result.model).toBe("gemini-3.8-flash");
+    expect(result.approach).toBe("learn");
+    expect(result.usage?.inputTokens).toBe(50);
+    const [url, request] = fetch.mock.calls[0];
+    expect(url).toContain("generativelanguage.googleapis.com");
+    expect(url).not.toContain("test-gemini-key");
+    expect(request.headers["x-goog-api-key"]).toBe("test-gemini-key");
+    const body = JSON.parse(request.body);
+    expect(body.systemInstruction.parts[0].text).toContain(
+      "patient trading tutor",
+    );
+    expect(body.generationConfig.responseMimeType).toBe("application/json");
+    expect(body.tools).toBeUndefined();
+    expect(request.body).not.toContain("98765");
+  });
+  it("stops on quota exhaustion instead of calling a paid fallback", async () => {
+    const db = setup();
+    vi.stubEnv("AI_PROVIDER", "gemini");
+    vi.stubEnv("GEMINI_API_KEY", "test-gemini-key");
+    vi.stubEnv("OPENAI_API_KEY", "must-never-use");
+    const fetch = vi.fn().mockResolvedValue(new Response("", { status: 429 }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(
+      askAI(db, {
+        question: "Explain this evidence",
+        symbol: "INFY",
+        includePortfolio: false,
+        approach: "learn",
+      }),
+    ).rejects.toThrow("No paid model was called");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(row<any>(db, "SELECT count(*) n FROM ai_runs")!.n).toBe(0);
+  });
+  it("supports conceptual teaching without inventing market evidence", async () => {
+    const db = setup();
+    db.prepare("DELETE FROM articles").run();
+    vi.stubEnv("AI_PROVIDER", "gemini");
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    const lesson = {
+      ...answer,
+      findings: [
+        {
+          ...answer.findings[0],
+          kind: "explanation",
+          heading: "VWAP",
+          assessment: "A volume-weighted average of traded prices.",
+          evidenceIds: [],
+        },
+      ],
+      scenarios: [],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                finishReason: "STOP",
+                content: { parts: [{ text: JSON.stringify(lesson) }] },
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+    const result = await askAI(db, {
+      question: "What is VWAP?",
+      symbol: "",
+      includePortfolio: false,
+      approach: "learn",
+    });
+    expect(result.sources).toHaveLength(0);
+    expect(result.answer.findings[0].kind).toBe("explanation");
+  });
+});
+
+it("retries a temporary Gemini service error once without changing models", async () => {
+  const db = setup();
+  vi.stubEnv("AI_PROVIDER", "gemini");
+  vi.stubEnv("GEMINI_API_KEY", "test-key");
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(new Response("", { status: 503 }))
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              finishReason: "STOP",
+              content: { parts: [{ text: JSON.stringify(answer) }] },
+            },
+          ],
+        }),
+      ),
+    );
+  vi.stubGlobal("fetch", fetch);
+  const result = await askAI(db, {
+    question: "Explain the evidence",
+    symbol: "INFY",
+    includePortfolio: false,
+    approach: "learn",
+  });
+  expect(result.answer.summary).toBe(answer.summary);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch.mock.calls[0][0]).toBe(fetch.mock.calls[1][0]);
 });

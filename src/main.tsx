@@ -92,6 +92,10 @@ function App() {
     symbol: string;
     scan?: ScanReference;
   } | null>(null);
+  const [context, setContext] = useState<{
+    symbol: string;
+    exchange: string;
+  } | null>(null);
   const [mode, setMode] = useState<Mode>("workspace");
   const [theme, setTheme] = useState(
     () => localStorage.getItem("hedgeway-theme") || "dark",
@@ -362,7 +366,9 @@ function App() {
               <span
                 className={`status-dot ${streamStatus?.state === "live" ? "" : "amber"}`}
               />
-              {streamStatus?.state === "live"
+              {["live", "snapshot", "connected"].includes(
+                streamStatus?.state || "",
+              )
                 ? "FEED CONNECTED"
                 : "CONNECT FEED"}
               <ArrowUpRight size={14} />
@@ -477,7 +483,9 @@ function App() {
                 className="text-button"
                 onClick={() => go("Integrations")}
               >
-                {streamStatus?.state === "live"
+                {["live", "snapshot", "connected", "research"].includes(
+                  streamStatus?.state || "",
+                )
                   ? "Connection settings"
                   : "Connect prices"}{" "}
                 <ArrowRight size={14} />
@@ -521,6 +529,19 @@ function App() {
                 )}
                 {page === "Markets" && (
                   <Markets
+                    researchOnly={status.marketProvider === "yahoo"}
+                    explore={(action, id) => {
+                      const [exchange, symbol] = id.split(":");
+                      setContext({ symbol, exchange });
+                      if (action === "learn") {
+                        setAISeed({
+                          symbol,
+                          question: `Help me understand ${exchange}:${symbol}. Explain what the latest available price and research do and do not tell us. Teach me how to read the candles, volume, prior-bar average and VWAP, and ask what timeframe I’m considering. Do not assume you have the chart candles unless they are in the evidence.`,
+                        });
+                        go("AI desk");
+                      } else
+                        go(action === "scan" ? "Setup scanner" : "Research");
+                    }}
                     quotes={data.quotes}
                     watch={watch}
                     onWatch={toggleWatch}
@@ -552,11 +573,15 @@ function App() {
                 )}
                 {page === "Setup scanner" && (
                   <SetupScanner
+                    seed={context}
+                    researchOnly={status.marketProvider === "yahoo"}
                     watch={watch}
                     connected={Boolean(
-                      status.marketProvider === "upstox"
-                        ? status.upstox
-                        : status.kite.connected,
+                      status.marketProvider === "yahoo"
+                        ? true
+                        : status.marketProvider === "upstox"
+                          ? status.upstox
+                          : status.kite.connected,
                     )}
                     go={go}
                     discuss={(scan) => {
@@ -581,6 +606,15 @@ function App() {
                 )}
                 {page === "Research" && (
                   <Research
+                    seed={context?.symbol || ""}
+                    learn={(symbol) => {
+                      setAISeed({
+                        symbol,
+                        question:
+                          "Help me understand the latest research. Explain the main story in plain language, distinguish reported facts from community opinions, and walk me through what could change the interpretation.",
+                      });
+                      go("AI desk");
+                    }}
                     redditReady={Boolean(status.reddit)}
                     go={go}
                     mode={mode}
@@ -603,9 +637,11 @@ function App() {
                     mode={mode}
                     show={show}
                     connected={Boolean(
-                      status.marketProvider === "upstox"
-                        ? status.upstox
-                        : status.kite.connected,
+                      status.marketProvider === "yahoo"
+                        ? true
+                        : status.marketProvider === "upstox"
+                          ? status.upstox
+                          : status.kite.connected,
                     )}
                     go={go}
                   />

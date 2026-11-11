@@ -155,6 +155,16 @@ export class MarketStream extends EventEmitter {
         });
         this.socket.terminate();
       }
+      if (
+        this.status.state === "live" &&
+        this.status.lastTickAt &&
+        Date.now() - Date.parse(this.status.lastTickAt) >= 120000
+      )
+        this.update({
+          state: "snapshot",
+          message:
+            "Broker connected; no recent trades. Check each quote’s timestamp.",
+        });
       this.safeEnsure();
     }, 10000);
     this.publishTimer = setInterval(() => {
@@ -205,7 +215,7 @@ export class MarketStream extends EventEmitter {
             JSON.stringify(q),
             new Date().toISOString(),
           );
-        if (q.exchange === "NSE")
+        if (q.exchange === "NSE" && Date.now() - Date.parse(q.asOf) < 120000)
           this.db
             .prepare(
               "UPDATE alerts SET triggered_at=? WHERE symbol=? AND triggered_at IS NULL AND ((direction='above' AND target<=?) OR (direction='below' AND target>=?))",
@@ -216,11 +226,30 @@ export class MarketStream extends EventEmitter {
   }
   async ensure() {
     if (this.stopped || this.connecting) return;
-    const provider = this.provider(),
-      ready =
-        provider === "upstox"
-          ? upstoxConfigured(this.db)
-          : kiteConnected(this.db);
+    const provider = this.provider();
+    if (provider === "yahoo") {
+      this.generation++;
+      this.retireSocket();
+      if (this.retryTimer) clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+      this.persist();
+      this.latest.clear();
+      this.dirty = false;
+      this.update({
+        provider: "Yahoo research",
+        state: "research",
+        subscriptions: 0,
+        lastTickAt: null,
+        lastHeartbeatAt: null,
+        message:
+          "Unofficial snapshots, not streaming. Add NSE companies in Markets, then use Refresh quotes. Data may be delayed or unavailable.",
+      });
+      return;
+    }
+    const ready =
+      provider === "upstox"
+        ? upstoxConfigured(this.db)
+        : kiteConnected(this.db);
     const ids = rows<{ symbol: string; exchange: string }>(
       this.db,
       "SELECT symbol,exchange FROM holdings UNION SELECT symbol,exchange FROM watchlist",
@@ -424,12 +453,24 @@ export class MarketStream extends EventEmitter {
             this.dirty = true;
             this.persistDirty = true;
           }
-          if (ticks.length)
+          if (ticks.length) {
+            const newest = Math.max(
+              ...[...this.latest.values()].map((q) => Date.parse(q.asOf)),
+            );
+            const fresh =
+              Number.isFinite(newest) && Date.now() - newest < 120000;
             this.update({
-              state: "live",
-              message: "Receiving exchange ticks." + missing,
-              lastTickAt: new Date().toISOString(),
+              state: fresh ? "live" : "snapshot",
+              message:
+                (fresh
+                  ? "Receiving recent exchange trades."
+                  : "Broker connected; last trades are older than two minutes. The market may be closed or this instrument inactive.") +
+                missing,
+              lastTickAt: Number.isFinite(newest)
+                ? new Date(newest).toISOString()
+                : null,
             });
+          }
         } catch {
           this.update({
             state: "error",

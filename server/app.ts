@@ -30,6 +30,7 @@ import {
   feeds,
   getArticles,
   ingestNews,
+  researchSources,
   ingestReddit,
   runJob,
 } from "./providers/research.js";
@@ -262,14 +263,20 @@ export function createApp(
   });
   app.post("/api/market/provider", async (req, res) => {
     const { provider } = z
-      .object({ provider: z.enum(["kite", "upstox"]) })
+      .object({ provider: z.enum(["kite", "upstox", "yahoo"]) })
       .parse(req.body);
+    if (provider === marketProvider(db)) {
+      res.json({ ok: true });
+      return;
+    }
+    options.stream?.stop();
     db.prepare("INSERT OR REPLACE INTO cache VALUES(?,?,?)").run(
       "config:market-provider",
       JSON.stringify(provider),
       8640000000000000,
     );
-    await options.stream?.restart();
+    db.prepare("DELETE FROM quotes").run();
+    options.stream?.start();
     res.json({ ok: true });
   });
   app.get("/api/dashboard", (req, res) => {
@@ -398,9 +405,17 @@ export function createApp(
     if (!ids.length)
       throw new Error("Add a watchlist instrument or import holdings first.");
     const result = await runJob(db, "Market quotes", async () => {
-      const q = await refreshQuotes(db, ids.slice(0, 30));
+      const q = await refreshQuotes(
+        db,
+        ids.slice(0, marketProvider(db) === "yahoo" ? 20 : 100),
+      );
       for (const quote of q) {
-        if (quote.exchange !== "NSE") continue;
+        if (
+          quote.exchange !== "NSE" ||
+          quote.source.startsWith("Yahoo") ||
+          Date.now() - Date.parse(quote.asOf) >= 120000
+        )
+          continue;
         db.prepare(
           "UPDATE alerts SET triggered_at=? WHERE symbol=? AND triggered_at IS NULL AND ((direction='above' AND target<=?) OR (direction='below' AND target>=?))",
         ).run(new Date().toISOString(), quote.symbol, quote.price, quote.price);
@@ -409,6 +424,9 @@ export function createApp(
     });
     res.json(result);
   });
+  app.get("/api/research/sources", (_req, res) =>
+    res.json(researchSources(db)),
+  );
   app.get("/api/research", (req, res) => {
     const query = String(req.query.q || "").slice(0, 200),
       kind = String(req.query.kind || "");

@@ -23,13 +23,18 @@ export default function AIDesk({
   const [status, setStatus] = useState<{
       configured: boolean;
       model: string;
+      provider?: string;
     } | null>(null),
     [key, setKey] = useState(""),
-    [model, setModel] = useState("gpt-5.5"),
+    [model, setModel] = useState("gemini-3.8-flash"),
     [question, setQuestion] = useState(seed?.question || ""),
     [symbol, setSymbol] = useState(seed?.symbol || ""),
     [scan, setScan] = useState<ScanReference | null>(seed?.scan || null),
     [includePortfolio, setIncludePortfolio] = useState(false),
+    [approach, setApproach] = useState<"learn" | "research" | "challenge">(
+      "learn",
+    ),
+    [refreshResearch, setRefreshResearch] = useState(true),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [threadId, setThreadId] = useState(""),
@@ -67,6 +72,8 @@ export default function AIDesk({
         question,
         symbol,
         includePortfolio,
+        approach,
+        refreshResearch,
         ...(scan ? { scanId: scan.id } : {}),
         ...(threadId ? { threadId } : {}),
       });
@@ -83,8 +90,8 @@ export default function AIDesk({
   return (
     <>
       <Panel
-        title="Turn research into a clearer view"
-        sub="Ask about themes, conflicting evidence, catalysts or a setup you’re watching."
+        title="Your thinking partner for the market"
+        sub="Learn the concepts. Talk through the evidence. Build your own judgment."
       >
         <div className="integration-body">
           <div className="button-row">
@@ -112,9 +119,11 @@ export default function AIDesk({
                 : "Connect an AI model"}
             </summary>
             <p>
-              Use an OpenAI API key. It is encrypted on this server. Each
-              analysis uses your API account and may incur charges; no analysis
-              runs automatically.
+              Google Gemini can explain the research already in your workspace.
+              Use a free-tier Google AI Studio project with billing disabled.
+              Keys stay encrypted on this server. Free quotas apply; we never
+              switch to a paid model when a quota runs out. Google may use
+              free-tier submissions to improve its products.
             </p>
             <form
               className="token-form"
@@ -123,7 +132,11 @@ export default function AIDesk({
                 setBusy(true);
                 setError("");
                 try {
-                  await post("/ai/credentials", { key, model });
+                  await post("/ai/credentials", {
+                    key,
+                    model,
+                    provider: "gemini",
+                  });
                   setKey("");
                   await refresh();
                   show("AI connection saved.");
@@ -135,7 +148,7 @@ export default function AIDesk({
               }}
             >
               <label>
-                OpenAI API key
+                Google AI Studio key
                 <input
                   type="password"
                   autoComplete="off"
@@ -148,17 +161,24 @@ export default function AIDesk({
               </label>
               <label>
                 Model
-                <input
-                  value={model}
+                <select
+                  value={
+                    model.startsWith("gemini-") ? model : "gemini-3.8-flash"
+                  }
                   onChange={(e) => setModel(e.target.value)}
-                  required
-                  pattern="gpt-[a-zA-Z0-9.\-]+"
-                />
+                >
+                  <option value="gemini-3.8-flash">
+                    Gemini 3.8 Flash · research & reasoning
+                  </option>
+                  <option value="gemini-3.5-flash-lite">
+                    Gemini 3.5 Flash-Lite · faster summaries
+                  </option>
+                </select>
               </label>
               <div className="button-row">
                 <button disabled={busy || !key}>Check & save connection</button>
                 <a
-                  href="https://platform.openai.com/api-keys"
+                  href="https://aistudio.google.com/apikey"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -220,7 +240,10 @@ export default function AIDesk({
                   setRuns(saved);
                   setThreadId(id);
                   setScan(saved.at(-1)?.scan || null);
-                  if (saved.at(-1)?.scan) setSymbol(saved.at(-1)!.scan!.symbol);
+                  setSymbol(
+                    saved.at(-1)?.symbol || saved.at(-1)?.scan?.symbol || "",
+                  );
+                  setApproach(saved.at(-1)?.approach || "learn");
                 } catch (e) {
                   setError((e as Error).message);
                 } finally {
@@ -267,6 +290,9 @@ export default function AIDesk({
             "What are the strongest themes in the latest news, and what contradicts them?",
             "Which catalysts deserve attention, and what evidence is still missing?",
             "Help me challenge a dip-and-rebound thesis before I act.",
+            "Teach me why a price below its recent average is not automatically a bargain.",
+            "Explain VWAP, volume confirmation and invalidation in simple terms.",
+            "Walk me through how fees and a stop-loss change a short-term trade.",
           ].map((text) => (
             <button key={text} onClick={() => setQuestion(text)}>
               <Sparkles size={16} />
@@ -277,11 +303,11 @@ export default function AIDesk({
       )}
       {runs.map((run, index) =>
         index === runs.length - 1 ? (
-          <Report key={run.id} run={run} />
+          <Report key={run.id} run={run} followUp={setQuestion} />
         ) : (
           <details className="disclosure" key={run.id}>
             <summary>{run.question}</summary>
-            <Report run={run} />
+            <Report run={run} followUp={setQuestion} />
           </details>
         ),
       )}
@@ -295,6 +321,37 @@ export default function AIDesk({
             void ask();
           }}
         >
+          <div
+            className="conversation-modes"
+            aria-label="Conversation approach"
+          >
+            {(
+              [
+                ["learn", "Teach me", "Plain English, examples and the why"],
+                [
+                  "research",
+                  "Read the evidence",
+                  "Sources, catalysts and uncertainty",
+                ],
+                [
+                  "challenge",
+                  "Challenge my thinking",
+                  "Assumptions, downside and alternatives",
+                ],
+              ] as const
+            ).map(([value, title, detail]) => (
+              <button
+                type="button"
+                key={value}
+                aria-pressed={approach === value}
+                className={approach === value ? "active" : ""}
+                onClick={() => setApproach(value)}
+              >
+                <strong>{title}</strong>
+                <small>{detail}</small>
+              </button>
+            ))}
+          </div>
           <label>
             What would you like to understand?
             <textarea
@@ -306,6 +363,14 @@ export default function AIDesk({
               required
               placeholder="For example: What supports a rebound in INFY, and what would weaken that view?"
             />
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={refreshResearch}
+              onChange={(e) => setRefreshResearch(e.target.checked)}
+            />
+            Refresh source feeds before answering · cached for five minutes
           </label>
           <div className="button-row">
             <label>
@@ -327,7 +392,7 @@ export default function AIDesk({
                 onChange={(e) => setIncludePortfolio(e.target.checked)}
               />
               Include my holdings and position-size assumptions in the context
-              sent to OpenAI
+              sent to {status?.provider === "openai" ? "OpenAI" : "Google"}
             </label>
           </div>
           {scan && (
@@ -356,8 +421,9 @@ export default function AIDesk({
               {busy ? "Reading evidence…" : "Analyze evidence"}
             </button>
             <span className="subtle">
-              Up to 50 recent articles or forum posts per answer. Follow-ups use
-              the last four discussion summaries plus current evidence.
+              Learning selects up to 12 recent excerpts; challenge mode 24 and
+              research 50. Follow-ups use up to 12 prior turns within a compact
+              context budget. Full discussions stay saved here.
             </span>
           </div>
         </form>
@@ -365,7 +431,13 @@ export default function AIDesk({
     </>
   );
 }
-function Report({ run }: { run: AIRun }) {
+function Report({
+  run,
+  followUp,
+}: {
+  run: AIRun;
+  followUp: (question: string) => void;
+}) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const cite = (ids: string[]) =>
     ids.map((id) => (
@@ -388,16 +460,64 @@ function Report({ run }: { run: AIRun }) {
     <Panel
       title={run.question}
       sub={`${run.model} · ${timestamp(run.createdAt)}`}
+      action={
+        <button
+          onClick={() => {
+            const content =
+              `# ${run.question}\n\n${run.answer.summary}\n\n` +
+              run.answer.findings
+                .map(
+                  (f) =>
+                    `## ${f.heading}\n${f.assessment}\n\n${f.implication}\n`,
+                )
+                .join("\n") +
+              "\n## Risks\n" +
+              run.answer.risks.map((r) => "- " + r).join("\n") +
+              "\n\n## Sources\n" +
+              run.sources
+                .map(
+                  (s) =>
+                    `${s.id}: ${s.title} — ${s.source} (${s.asOf}) ${s.url || ""}`,
+                )
+                .join("\n");
+            const url = URL.createObjectURL(
+              new Blob([content], { type: "text/markdown" }),
+            );
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `hedgeway-learning-${run.id}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          Save learning note
+        </button>
+      }
     >
       <div className="ai-report">
         <p className="ai-summary">{run.answer.summary}</p>
+        {!!run.coverage.failedSources?.length && (
+          <p className="notice">
+            Coverage gap: {run.coverage.failedSources.join(", ")} failed their
+            last refresh. This answer cannot represent those missing updates.
+          </p>
+        )}
+        {run.usage && (
+          <p className="subtle">
+            This turn: {number(run.usage.inputTokens, 0)} input tokens ·{" "}
+            {number(run.usage.outputTokens, 0)} output tokens (including
+            reported thinking). Quotas are set by the model provider.
+          </p>
+        )}
         <div className="evidence-findings">
           {run.answer.findings.map((f, i) => (
             <section key={i}>
               <span className={`tag ${f.kind === "hypothesis" ? "amber" : ""}`}>
                 {f.kind === "observation"
                   ? "Sourced observation"
-                  : "Possible explanation"}
+                  : f.kind === "explanation"
+                    ? "Learning note"
+                    : "Possible explanation"}
               </span>
               <h3>{f.heading}</h3>
               <p>{f.assessment}</p>
@@ -430,7 +550,19 @@ function Report({ run }: { run: AIRun }) {
           <summary>Questions worth investigating</summary>
           <ul className="readable-list">
             {run.answer.openQuestions.map((q, i) => (
-              <li key={i}>{q}</li>
+              <li key={i}>
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    followUp(q);
+                    document
+                      .querySelector(".ai-question")
+                      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                >
+                  {q} <ArrowUpRight size={13} />
+                </button>
+              </li>
             ))}
           </ul>
         </details>
@@ -453,7 +585,8 @@ function Report({ run }: { run: AIRun }) {
                 <div>
                   <strong>{source.title}</strong>
                   <small>
-                    {source.source} · {timestamp(source.asOf)}
+                    {source.source} · {source.sourceCategory || source.kind} ·{" "}
+                    {timestamp(source.asOf)}
                   </small>
                   <p>{source.content}</p>
                   {source.url && (

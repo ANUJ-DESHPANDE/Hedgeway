@@ -28,3 +28,7 @@ The stylesheet includes mobile layouts, visible focus states, dark/light themes 
 ## Visual and navigation redesign
 
 The permanent sidebar was replaced by a horizontal navigation deck and a searchable Explore control. The overview uses a dark graphite/orange palette, a strong typographic hierarchy, a decorative orbital graphic and direct actions for market watch, imports, setup analysis, research and testing. The graphic is not a market chart. It respects reduced-motion preferences. Market-strip values come only from stored broker quotes and carry timestamps; disconnected feeds do not generate prices. Mobile navigation scrolls horizontally, with Explore providing an alternative route to every page. Existing portfolio, import and scanner workflows remain available.
+
+## Market and learning pass — 11 November
+
+Real-data charts replace the scanner’s simple close line and give Markets a dedicated candle/volume workbench. Company context flows into research, setup checks and AI explanations. Learning, evidence review and thesis challenge are explicit conversational approaches, with editable follow-ups and Markdown export. Input/output token usage and source failures remain visible. Source health is available on mobile, and table accessibility labels are contained within their horizontal scroll wrappers. IPO dates export to standard calendar files.

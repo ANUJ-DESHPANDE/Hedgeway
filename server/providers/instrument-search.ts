@@ -13,7 +13,7 @@ export async function searchInstruments(
   const provider = marketProvider(db);
   const connected =
     provider === "upstox" ? upstoxConfigured(db) : kiteConnected(db);
-  if (!connected)
+  if (provider === "yahoo" || !connected)
     return {
       source:
         "Popular NSE companies. Connect a price provider to search its full catalogue.",

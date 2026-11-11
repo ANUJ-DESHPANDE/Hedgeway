@@ -1,3 +1,4 @@
+import MarketChart from "../components/MarketChart";
 import { Plus, RefreshCw, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
@@ -5,6 +6,8 @@ import type { Mode, Quote } from "../types";
 import { Empty, Panel, QuoteTable } from "../ui";
 export default function Markets({
   quotes,
+  explore,
+  researchOnly,
   watch,
   onWatch,
   mode,
@@ -14,6 +17,8 @@ export default function Markets({
   removeWatch,
 }: {
   quotes: Quote[];
+  explore: (action: "learn" | "scan" | "news", instrument: string) => void;
+  researchOnly: boolean;
   watch: string[];
   onWatch: (q: Quote) => void;
   mode: Mode;
@@ -85,6 +90,12 @@ export default function Markets({
     );
   return (
     <>
+      <MarketChart
+        watch={watch}
+        quotes={quotes}
+        explore={explore}
+        researchOnly={researchOnly}
+      />
       <div className="toolbar">
         <div className="tabs">
           <button

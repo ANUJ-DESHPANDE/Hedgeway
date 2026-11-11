@@ -7,15 +7,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import PriceChart from "../components/PriceChart";
 import { api, money, number, post, timestamp } from "../api";
 import {
   defaultSetup,
@@ -24,7 +16,7 @@ import {
 } from "../trading";
 import type { Page } from "../navigation";
 import type { ScanReference } from "../intelligence-types";
-import { Empty, Panel, Stat, tooltipStyle } from "../ui";
+import { Empty, Panel, Stat } from "../ui";
 type Result = SetupAnalysis & {
   id: string;
   symbol: string;
@@ -41,17 +33,25 @@ type HistoryItem = Pick<
 >;
 export default function SetupScanner({
   watch,
+  seed,
+  researchOnly = false,
   connected,
   go,
   discuss,
 }: {
   watch: string[];
+  seed?: { symbol: string; exchange: string } | null;
+  researchOnly?: boolean;
   connected: boolean;
   go: (page: Page) => void;
   discuss: (scan: ScanReference) => void;
 }) {
-  const [symbol, setSymbol] = useState(watch[0]?.split(":")[1] || "INFY"),
-    [exchange, setExchange] = useState(watch[0]?.split(":")[0] || "NSE"),
+  const [symbol, setSymbol] = useState(
+      seed?.symbol || watch[0]?.split(":")[1] || "INFY",
+    ),
+    [exchange, setExchange] = useState(
+      seed?.exchange || watch[0]?.split(":")[0] || "NSE",
+    ),
     [parameters, setParameters] = useState<SetupParameters>(defaultSetup),
     [scanWatch, setScanWatch] = useState(false),
     [results, setResults] = useState<Result[]>([]),
@@ -158,7 +158,9 @@ export default function SetupScanner({
                 onChange={(e) => update("barMinutes", Number(e.target.value))}
               >
                 <option value={1}>1 minute</option>
-                <option value={3}>3 minutes</option>
+                <option value={3} disabled={researchOnly}>
+                  3 minutes
+                </option>
                 <option value={5}>5 minutes</option>
               </select>
             </label>
@@ -383,16 +385,6 @@ function SetupResult({
         summary: "Historical view — these candles are no longer current.",
       }
     : original;
-  const series = r.bars.map((b, i, a) => ({
-    time: b.time,
-    price: b.close,
-    mean:
-      i >= r.parameters.lookback
-        ? a
-            .slice(i - r.parameters.lookback, i)
-            .reduce((s, x) => s + x.close, 0) / r.parameters.lookback
-        : null,
-  }));
   return (
     <Panel
       title={`${r.exchange}:${r.symbol}`}
@@ -444,48 +436,11 @@ function SetupResult({
                 }
               />
             </div>
-            <div className="chart small-chart">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={series}>
-                  <CartesianGrid stroke="var(--border)" vertical={false} />
-                  <XAxis
-                    dataKey="time"
-                    tickFormatter={(v) =>
-                      new Date(v).toLocaleTimeString("en-IN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        timeZone: "Asia/Kolkata",
-                      })
-                    }
-                    minTickGap={50}
-                    tick={{ fill: "var(--muted)", fontSize: 10 }}
-                  />
-                  <YAxis
-                    domain={["auto", "auto"]}
-                    tick={{ fill: "var(--muted)", fontSize: 10 }}
-                    tickFormatter={(v) => number(v, 1)}
-                  />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    labelFormatter={(v) => timestamp(String(v))}
-                  />
-                  <Line
-                    dataKey="price"
-                    name="Completed close"
-                    stroke="var(--accent)"
-                    dot={false}
-                    strokeWidth={2}
-                  />
-                  <Line
-                    dataKey="mean"
-                    name="Prior-bar average"
-                    stroke="#89b5ec"
-                    dot={false}
-                    strokeDasharray="4 4"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            <PriceChart
+              bars={r.bars}
+              meanWindow={r.parameters.lookback}
+              label={`${r.symbol} saved setup candles`}
+            />
           </>
         )}
         <ul className="setup-checks">

@@ -2,7 +2,7 @@
 
 ## AI desk
 
-Refresh Research, then open AI desk and connect an OpenAI API key. The server checks that the chosen model is available to your API account before encrypting the key. The default is GPT-5.5; another compatible `gpt-` model can be entered. A ChatGPT subscription does not include API billing. No model request runs automatically.
+Refresh Research, then use the AI desk. Google Gemini 3.8 Flash is the default, with Flash-Lite available. A free-tier Google AI Studio project without billing enabled is required for free use; quotas and provider terms apply. The server verifies model availability before encrypting a supplied key. No model request runs automatically and quota errors do not trigger paid fallback. A browser Gemini subscription/session is not an API credential.
 
 Start with a question about themes, competing explanations, catalysts or missing evidence. Add a trading symbol to narrow the evidence, or leave it empty for the recent feed. Symbol matching uses stored tags and headline text; limited tagging can miss relevant coverage. The displayed coverage count helps expose this limitation. Follow-up questions reuse recent discussion summaries and retrieve a fresh evidence packet.
 
@@ -16,9 +16,9 @@ Answers distinguish observations and hypotheses, show conditional scenarios, ris
 - For a selected symbol, the latest saved setup analysis with its timestamp, or the exact saved scan pinned by a scanner handoff. A pinned scan also restricts quote context to its exchange. Candle arrays are excluded.
 - Only if you enable the sharing checkbox: up to 100 saved holdings with quantities and acquisition costs, plus scan sizing assumptions. These are not current balances or verified account history. Prior portfolio-shared discussion runs are omitted from subsequent requests when sharing is disabled.
 
-Requests go to OpenAI with `store: false`; OpenAI's account/data-retention policies still apply. The local SQLite database stores questions, answers, evidence snapshots and reported token usage. Deleting a discussion removes its runs locally. Backups may retain previous copies. Removing the saved key does not remove an independently configured `OPENAI_API_KEY` environment variable.
+Default requests go to Google Gemini. Free-tier submissions may be used to improve Google products; do not include information you do not want shared. The optional legacy OpenAI adapter uses `store: false` when explicitly configured. The local SQLite database stores questions, answers, evidence snapshots and reported token usage. Deleting a discussion removes its runs locally. Backups may retain previous copies. Removing a saved key does not remove an independently configured provider environment variable.
 
-There is one concurrent model request per workspace, a 30-request hourly limit, a 90-second provider timeout and a 7,000-output-token cap per request. Input size and model pricing also affect costs. Incomplete, malformed or unknown-citation answers are not saved. A failed response may still incur provider charges. No external tools, order APIs or autonomous AI polling are enabled.
+There is one concurrent model request per workspace, a configurable local limit of up to 120 requests per hour, in addition to provider quotas, a 90-second provider timeout and a 3,000-output-token cap for learning and 6,000 for research/challenge requests. Input size and model pricing also affect costs. Incomplete, malformed or unknown-citation answers are not saved. A failed response may still incur provider charges. No external tools, order APIs or autonomous AI polling are enabled.
 
 ## Setup scanner
 
@@ -33,3 +33,13 @@ The scanner checks your dip-and-rebound idea using completed candles. Each condi
 Export scan evidence downloads JSON containing the original parameters, source, completed-candle inputs, evaluation time and analysis. New scans retain the complete session needed to reproduce all metrics; legacy scans display a notice if their original input capture was incomplete. Changing form settings does not rewrite a saved result. Stale badges and the freshness check update as time passes, even without incoming market ticks. Opening a saved scan pauses automatic scanning. History lists load small summaries and fetch full evidence only when you open a scan.
 
 The scanner's mathematics and assumptions are documented in [Analytics](ANALYTICS.md).
+
+## Learning and conversation
+
+Teach me is the default approach. It asks the model to define unfamiliar terms, explain mechanisms and use clearly labeled hypothetical arithmetic only when helpful. Conceptual teaching is labeled Learning note and may work without market evidence. Market observations still require references to supplied sources. Challenge my thinking asks for competing interpretations, fees, invalidation conditions and missing assumptions. The model must not treat a user's proposed trade as a confirmed edge.
+
+Follow-ups include the last 12 prior questions, summaries, selected concepts and open questions, plus freshly selected evidence. This is bounded context, not unlimited memory. Earlier discussions that included portfolio information are excluded when current portfolio sharing is off. Old citation IDs cannot be used as current evidence. Saved discussions restore their company and approach. Suggested next questions are editable before sending. Markdown exports preserve the answer and source attribution.
+
+No model can guarantee sound trading judgment. Citation validation verifies reference identity, not the correctness of the interpretation. A real Google key was validated and Flash-Lite completed a source-grounded learning answer; transient 503 failures were also observed.
+
+Learning requests select at most 12 source excerpts, challenge requests 24, and research requests 50. Prior-turn context is bounded to 10,000 serialized characters; full discussions remain stored locally. Input/output usage is shown per answer, including reported thinking tokens. Source refresh uses five-minute caches. Temporary Gemini 502/503/504 failures are retried once; quota errors are not retried or redirected to paid services.

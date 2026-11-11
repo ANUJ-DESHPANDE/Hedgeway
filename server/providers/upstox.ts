@@ -67,7 +67,7 @@ export async function resolveUpstox(
       query: symbol,
       exchanges: exchange,
       segments: "EQ",
-      records: "100",
+      records: "20",
     });
     const items = z
       .array(
@@ -112,11 +112,17 @@ export async function upstoxQuotes(db: DB, ids: string[]): Promise<Quote[]> {
         last_price: z.number().positive(),
         ohlc: z.object({ close: z.number().positive() }),
         timestamp: z.string().datetime({ offset: true }),
+        net_change: z.number().optional(),
+        last_trade_time: z.coerce.number().positive().optional(),
       })
       .parse(v);
     const item = instrumentsByKey.get(q.instrument_token);
     if (!item) return [];
     const [exchange, symbol] = item.id.split(":");
+    const previousClose =
+      q.net_change === undefined ? q.ohlc.close : q.last_price - q.net_change;
+    if (previousClose <= 0)
+      throw new Error("Upstox returned an invalid previous close.");
     return [
       {
         symbol,
@@ -124,10 +130,10 @@ export async function upstoxQuotes(db: DB, ids: string[]): Promise<Quote[]> {
         name: item.instrument.name,
         sector: instruments.find((x) => x[0] === symbol)?.[2] || "Unclassified",
         price: q.last_price,
-        previousClose: q.ohlc.close,
-        change: (q.last_price / q.ohlc.close - 1) * 100,
+        previousClose,
+        change: (q.last_price / previousClose - 1) * 100,
         currency: "INR",
-        asOf: new Date(q.timestamp).toISOString(),
+        asOf: new Date(q.last_trade_time ?? q.timestamp).toISOString(),
         source: "Upstox exchange quote",
       },
     ];
