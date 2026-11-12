@@ -85,7 +85,7 @@ function App() {
   const [page, setPage] = useState<Page>(
     () =>
       pages.find((p) => p.name === decodeURIComponent(location.hash.slice(1)))
-        ?.name || "Overview",
+        ?.name || "Markets",
   );
   const [aiSeed, setAISeed] = useState<{
     question: string;
@@ -113,6 +113,7 @@ function App() {
     [busy, setBusy] = useState(false),
     [toast, setToast] = useState<{ text: string; error: boolean } | null>(null),
     [search, setSearch] = useState(false),
+    [assistantOpen, setAssistantOpen] = useState(false),
     [importing, setImporting] = useState(false),
     [version, setVersion] = useState(0);
   const [streamStatus, setStreamStatus] = useState<{
@@ -142,7 +143,7 @@ function App() {
     const f = () =>
       setPage(
         pages.find((p) => p.name === decodeURIComponent(location.hash.slice(1)))
-          ?.name || "Overview",
+          ?.name || "Markets",
       );
     window.addEventListener("hashchange", f);
     return () => window.removeEventListener("hashchange", f);
@@ -331,10 +332,10 @@ function App() {
       </a>
       <header className="terminal-header">
         <div className="terminal-top">
-          <a href="#Overview" className="brand" aria-label="Hedgeway overview">
+          <a href="#Markets" className="brand" aria-label="Hedgeway workspace">
             <Logo />
             <span className="brand-word">
-              HEDGEWAY<small>THE INVESTING LAB</small>
+              HEDGEWAY<small>YOUR MARKET WORKSPACE</small>
             </span>
           </a>
           <span className="terminal-location">INDIA / NSE + BSE</span>
@@ -389,17 +390,45 @@ function App() {
           </div>
         </div>
         <nav className="terminal-nav" aria-label="Main navigation">
-          {pages.map(({ name, icon: Icon }) => (
-            <button
-              key={name}
-              className={`nav-item ${page === name ? "selected" : ""}`}
-              onClick={() => go(name)}
-              aria-current={page === name ? "page" : undefined}
-            >
-              <Icon size={15} />
-              {name}
-            </button>
-          ))}
+          {pages
+            .filter((p) =>
+              ["Markets", "Research", "Portfolio"].includes(p.name),
+            )
+            .map(({ name, icon: Icon }) => (
+              <button
+                key={name}
+                className={`nav-item ${page === name ? "selected" : ""}`}
+                onClick={() => go(name)}
+                aria-current={page === name ? "page" : undefined}
+              >
+                <Icon size={16} />
+                {name === "Markets" ? "Workspace" : name}
+              </button>
+            ))}
+          <details className="workspace-tools" key={page}>
+            <summary>
+              More tools <span>⌄</span>
+            </summary>
+            <div className="workspace-tools-menu">
+              {pages
+                .filter(
+                  (p) => !["Markets", "Research", "Portfolio"].includes(p.name),
+                )
+                .map(({ name, icon: Icon }) => (
+                  <button key={name} onClick={() => go(name)}>
+                    <Icon size={16} />
+                    {name === "Integrations" ? "Connections & settings" : name}
+                  </button>
+                ))}
+            </div>
+          </details>
+          <button
+            className="assistant-launch"
+            onClick={() => setAssistantOpen(true)}
+          >
+            <Sparkles size={16} />
+            Ask Hedgeway
+          </button>
         </nav>
       </header>
       <div className="market-ribbon" aria-label="Market feed snapshots">
@@ -449,7 +478,7 @@ function App() {
         </div>
       </div>
       <div
-        className={`main-shell ${page === "Overview" ? "overview-shell" : ""}`}
+        className={`main-shell ${page === "Overview" ? "overview-shell" : ""} ${page === "Markets" ? "trading-shell" : ""}`}
       >
         <main id="main">
           <div className="page-heading">
@@ -529,6 +558,7 @@ function App() {
                 )}
                 {page === "Markets" && (
                   <Markets
+                    articles={data.articles}
                     researchOnly={status.marketProvider === "yahoo"}
                     explore={(action, id) => {
                       const [exchange, symbol] = id.split(":");
@@ -538,7 +568,7 @@ function App() {
                           symbol,
                           question: `Help me understand ${exchange}:${symbol}. Explain what the latest available price and research do and do not tell us. Teach me how to read the candles, volume, prior-bar average and VWAP, and ask what timeframe I’m considering. Do not assume you have the chart candles unless they are in the evidence.`,
                         });
-                        go("AI desk");
+                        setAssistantOpen(true);
                       } else
                         go(action === "scan" ? "Setup scanner" : "Research");
                     }}
@@ -689,6 +719,23 @@ function App() {
             <X size={16} />
           </button>
         </div>
+      )}
+      {assistantOpen && (
+        <Modal title="Ask Hedgeway" onClose={() => setAssistantOpen(false)}>
+          <div className="workspace-assistant">
+            <Suspense fallback={<p>Opening your conversation…</p>}>
+              <AIDesk
+                compact
+                seed={aiSeed}
+                go={(p) => {
+                  setAssistantOpen(false);
+                  go(p);
+                }}
+                show={show}
+              />
+            </Suspense>
+          </div>
+        </Modal>
       )}
       {search && <CommandPalette onClose={() => setSearch(false)} go={go} />}
       {importing && (

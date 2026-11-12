@@ -18,11 +18,15 @@ export default function MarketChart({
   quotes,
   explore,
   researchOnly = false,
+  selected,
+  onSelect,
 }: {
   watch: string[];
   quotes: Quote[];
   explore?: (action: "learn" | "scan" | "news", instrument: string) => void;
   researchOnly?: boolean;
+  selected?: string;
+  onSelect?: (value: string) => void;
 }) {
   const instruments = [
     ...new Set([...watch, ...quotes.map((q) => `${q.exchange}:${q.symbol}`)]),
@@ -36,8 +40,9 @@ export default function MarketChart({
     [auto, setAuto] = useState(true),
     [lookback, setLookback] = useState(20);
   const generation = useRef(0);
-  const chosen = instruments.includes(instrument)
-    ? instrument
+  const candidate = selected ?? instrument;
+  const chosen = instruments.includes(candidate)
+    ? candidate
     : instruments[0] || "";
   useEffect(() => {
     if (!auto || !chosen) return;
@@ -95,7 +100,24 @@ export default function MarketChart({
     a.click();
     URL.revokeObjectURL(url);
   };
-  if (!chosen) return null;
+  if (!chosen)
+    return (
+      <section className="chart-welcome">
+        <div className="chart-welcome-grid" aria-hidden="true" />
+        <div>
+          <span className="eyebrow">YOUR TRADING DESK</span>
+          <h1>
+            A clearer view.
+            <br />A better-informed move.
+          </h1>
+          <p>
+            Add a company to your watchlist to open its chart. Research and your
+            AI conversation stay within reach.
+          </p>
+          <span className="tag">Real prices only · No simulated candles</span>
+        </div>
+      </section>
+    );
   return (
     <section
       className="panel market-chart-workspace"
@@ -122,7 +144,10 @@ export default function MarketChart({
           <select
             aria-label="Chart company"
             value={chosen}
-            onChange={(e) => setInstrument(e.target.value)}
+            onChange={(e) => {
+              setInstrument(e.target.value);
+              onSelect?.(e.target.value);
+            }}
           >
             {instruments.map((s) => (
               <option key={s}>{s}</option>

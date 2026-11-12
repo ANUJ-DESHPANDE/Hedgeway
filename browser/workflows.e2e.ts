@@ -1,20 +1,24 @@
 import { test, expect, type Page } from "@playwright/test";
 async function navigate(page: Page, name: string) {
-  await expect(
-    page.getByRole("main").getByRole("heading", { level: 1 }),
-  ).toBeVisible();
-  const menu = page.getByRole("button", {
-    name: "Open navigation",
-    exact: true,
-  });
-  if (await menu.isVisible()) await menu.click();
-  await page
-    .getByRole("navigation")
-    .getByRole("button", { name: new RegExp("^" + name) })
-    .click();
-  await expect(
-    page.getByRole("main").getByRole("heading", { level: 1 }),
-  ).toHaveText(name === "Overview" ? "Your market overview" : name);
+  await expect(page.getByRole("navigation")).toBeVisible();
+  const nav = page.getByRole("navigation");
+  if (!["Markets", "Research", "Portfolio"].includes(name))
+    await nav.getByText("More tools").click();
+  const label =
+    name === "Markets"
+      ? "Workspace"
+      : name === "Integrations"
+        ? "Connections & settings"
+        : name;
+  await nav.getByRole("button", { name: label, exact: true }).click();
+  if (name === "Markets")
+    await expect(
+      page.getByRole("complementary", { name: "Watchlist", exact: true }),
+    ).toBeVisible();
+  else
+    await expect(
+      page.getByRole("main").getByRole("heading", { level: 1 }),
+    ).toHaveText(name === "Overview" ? "Your market overview" : name);
 }
 test("all workspaces render without browser errors or page overflow", async ({
   page,
@@ -23,7 +27,7 @@ test("all workspaces render without browser errors or page overflow", async ({
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "Import my holdings" }),
+    page.getByRole("button", { name: "Workspace", exact: true }),
   ).toBeVisible();
   for (const name of [
     "Markets",
@@ -52,7 +56,7 @@ test("CSV import has a non-mutating preview and an explicit save step", async ({
   page,
   request,
 }) => {
-  await page.goto("/");
+  await page.goto("/#Overview");
   await page.getByRole("button", { name: "Import my holdings" }).click();
   await page.locator("input[type=file]").setInputFiles({
     name: "test-holdings.csv",
@@ -80,7 +84,7 @@ test("CSV import has a non-mutating preview and an explicit save step", async ({
 test("modal typing keeps focus through a real stream status update and closes with Escape", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#Overview");
   await page.getByRole("button", { name: "Import my holdings" }).click();
   await page.getByText("Paste CSV or see the required columns").click();
   const text = page.getByLabel("CSV contents");

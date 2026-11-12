@@ -13,3 +13,5 @@ backups/
 
 playwright-report/
 test-results/
+
+*connections.env

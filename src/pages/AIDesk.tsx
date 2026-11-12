@@ -15,7 +15,9 @@ export default function AIDesk({
   seed,
   go,
   show,
+  compact = false,
 }: {
+  compact?: boolean;
   seed: { question: string; symbol: string; scan?: ScanReference } | null;
   go: (page: Page) => void;
   show: (message: string, error?: boolean) => void;
@@ -89,126 +91,136 @@ export default function AIDesk({
   }
   return (
     <>
-      <Panel
-        title="Your thinking partner for the market"
-        sub="Learn the concepts. Talk through the evidence. Build your own judgment."
+      <details
+        className={
+          compact ? "assistant-source-details" : "assistant-source-expanded"
+        }
+        open={!compact || status?.configured === false}
       >
-        <div className="integration-body">
-          <div className="button-row">
-            <span className="tag">
-              {coverage
-                ? `${coverage.items} recent items · ${coverage.publishers} sources`
-                : "Checking source coverage…"}
-            </span>
-            <button className="text-button" onClick={() => go("Research")}>
-              Review source feed <ArrowUpRight size={14} />
-            </button>
-          </div>
-          <p>
-            Answers use stored news and forum excerpts from the last seven days,
-            last-received prices and any saved setup scan for the selected
-            symbol. Full articles are not automatically included.
-          </p>
-          <details
-            className="disclosure compact"
-            open={status ? !status.configured : undefined}
-          >
-            <summary>
-              {status?.configured
-                ? `AI connection · ${status.model}`
-                : "Connect an AI model"}
-            </summary>
+        <summary>Sources & AI connection</summary>
+        <Panel
+          title="Your thinking partner for the market"
+          sub="Learn the concepts. Talk through the evidence. Build your own judgment."
+        >
+          <div className="integration-body">
+            <div className="button-row">
+              <span className="tag">
+                {coverage
+                  ? `${coverage.items} recent items · ${coverage.publishers} sources`
+                  : "Checking source coverage…"}
+              </span>
+              <button className="text-button" onClick={() => go("Research")}>
+                Review source feed <ArrowUpRight size={14} />
+              </button>
+            </div>
             <p>
-              Google Gemini can explain the research already in your workspace.
-              Use a free-tier Google AI Studio project with billing disabled.
-              Keys stay encrypted on this server. Free quotas apply; we never
-              switch to a paid model when a quota runs out. Google may use
-              free-tier submissions to improve its products.
+              Answers use stored news and forum excerpts from the last seven
+              days, last-received prices and any saved setup scan for the
+              selected symbol. Full articles are not automatically included.
             </p>
-            <form
-              className="token-form"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setBusy(true);
-                setError("");
-                try {
-                  await post("/ai/credentials", {
-                    key,
-                    model,
-                    provider: "gemini",
-                  });
-                  setKey("");
-                  await refresh();
-                  show("AI connection saved.");
-                } catch (e) {
-                  setError((e as Error).message);
-                } finally {
-                  setBusy(false);
-                }
-              }}
+            <details
+              className="disclosure compact"
+              open={status ? !status.configured : undefined}
             >
-              <label>
-                Google AI Studio key
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={key}
-                  onChange={(e) => setKey(e.target.value)}
-                  minLength={20}
-                  required
-                  placeholder="Paste your API key"
-                />
-              </label>
-              <label>
-                Model
-                <select
-                  value={
-                    model.startsWith("gemini-") ? model : "gemini-3.8-flash"
+              <summary>
+                {status?.configured
+                  ? `AI connection · ${status.model}`
+                  : "Connect an AI model"}
+              </summary>
+              <p>
+                Google Gemini can explain the research already in your
+                workspace. Use a free-tier Google AI Studio project with billing
+                disabled. Keys stay encrypted on this server. Free quotas apply;
+                we never switch to a paid model when a quota runs out. Google
+                may use free-tier submissions to improve its products.
+              </p>
+              <form
+                className="token-form"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setBusy(true);
+                  setError("");
+                  try {
+                    await post("/ai/credentials", {
+                      key,
+                      model,
+                      provider: "gemini",
+                    });
+                    setKey("");
+                    await refresh();
+                    show("AI connection saved.");
+                  } catch (e) {
+                    setError((e as Error).message);
+                  } finally {
+                    setBusy(false);
                   }
-                  onChange={(e) => setModel(e.target.value)}
-                >
-                  <option value="gemini-3.8-flash">
-                    Gemini 3.8 Flash · research & reasoning
-                  </option>
-                  <option value="gemini-3.5-flash-lite">
-                    Gemini 3.5 Flash-Lite · faster summaries
-                  </option>
-                </select>
-              </label>
-              <div className="button-row">
-                <button disabled={busy || !key}>Check & save connection</button>
-                <a
-                  href="https://aistudio.google.com/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Get an API key <ArrowUpRight size={14} />
-                </a>
-                {status?.configured && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      setError("");
-                      try {
-                        await remove("/ai/credentials");
-                        await refresh();
-                      } catch (e) {
-                        setError((e as Error).message);
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
+                }}
+              >
+                <label>
+                  Google AI Studio key
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={key}
+                    onChange={(e) => setKey(e.target.value)}
+                    minLength={20}
+                    required
+                    placeholder="Paste your API key"
+                  />
+                </label>
+                <label>
+                  Model
+                  <select
+                    value={
+                      model.startsWith("gemini-") ? model : "gemini-3.8-flash"
+                    }
+                    onChange={(e) => setModel(e.target.value)}
                   >
-                    Remove saved key
+                    <option value="gemini-3.8-flash">
+                      Gemini 3.8 Flash · research & reasoning
+                    </option>
+                    <option value="gemini-3.5-flash-lite">
+                      Gemini 3.5 Flash-Lite · faster summaries
+                    </option>
+                  </select>
+                </label>
+                <div className="button-row">
+                  <button disabled={busy || !key}>
+                    Check & save connection
                   </button>
-                )}
-              </div>
-            </form>
-          </details>
-        </div>
-      </Panel>
+                  <a
+                    href="https://aistudio.google.com/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Get an API key <ArrowUpRight size={14} />
+                  </a>
+                  {status?.configured && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        setError("");
+                        try {
+                          await remove("/ai/credentials");
+                          await refresh();
+                        } catch (e) {
+                          setError((e as Error).message);
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Remove saved key
+                    </button>
+                  )}
+                </div>
+              </form>
+            </details>
+          </div>
+        </Panel>
+      </details>
       <div className="toolbar">
         <div className="button-row">
           <button
@@ -284,7 +296,7 @@ export default function AIDesk({
           </button>
         )}
       </div>
-      {!runs.length && (
+      {!runs.length && !compact && (
         <div className="prompt-grid">
           {[
             "What are the strongest themes in the latest news, and what contradicts them?",
