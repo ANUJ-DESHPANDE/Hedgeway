@@ -44,3 +44,7 @@ GitHub Actions repeats tests, production build, dependency audit, desktop/mobile
 - Comprehensive assistive-technology checks and additional browser engines.
 - Public HTTPS hosting and uptime: deployment artifacts are included; no externally hosted installation is claimed.
 - AI accuracy is not established by a valid source ID or passing integration tests. Review original material and recognize coverage gaps before making decisions.
+
+## CI infrastructure follow-up — 12 November
+
+The first published run passed tests, build and audit, then failed while Ubuntu package mirrors could not be resolved during Playwright dependency installation. CI now pins Ubuntu 24.04 and verifies/uses a preinstalled Chrome or Chromium when available; it falls back to the normal Playwright installer otherwise. Browser tests are not skipped.

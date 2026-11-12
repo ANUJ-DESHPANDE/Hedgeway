@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 const executablePath =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ||
-  (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : undefined);
+  [
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+  ].find(existsSync);
 export default defineConfig({
   testDir: "./browser",
   testMatch: "**/*.e2e.ts",
