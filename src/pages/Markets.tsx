@@ -30,6 +30,37 @@ export default function Markets({
   removeWatch: (id: string) => void;
 }) {
   const [selected, setSelected] = useState("");
+  const activeInstrument = watch.includes(selected) ? selected : watch[0] || "";
+  const activeSymbol = activeInstrument.split(":")[1] || "";
+  const [companyNews, setCompanyNews] = useState<Article[]>([]);
+  const [allNews, setAllNews] = useState(false);
+  const [newsError, setNewsError] = useState("");
+  const [newsLoading, setNewsLoading] = useState(false);
+  useEffect(() => {
+    setCompanyNews([]);
+    setNewsError("");
+    if (!activeSymbol || allNews) {
+      setNewsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setNewsLoading(true);
+    api<Article[]>(
+      `/research?mode=workspace&q=${encodeURIComponent(activeSymbol)}&kind=&saved=false`,
+      { signal: controller.signal },
+    )
+      .then((items) => {
+        if (!controller.signal.aborted) setCompanyNews(items);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setNewsError(e.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setNewsLoading(false);
+      });
+    return () => controller.abort();
+  }, [activeSymbol, allNews, articles]);
+  const stories = allNews || !activeSymbol ? articles : companyNews;
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("symbol"),
@@ -116,7 +147,7 @@ export default function Markets({
               const q = quotes.find((q) => `${q.exchange}:${q.symbol}` === id);
               return (
                 <button
-                  className={`watch-tile ${(selected || watch[0]) === id ? "active" : ""}`}
+                  className={`watch-tile ${activeInstrument === id ? "active" : ""}`}
                   key={id}
                   onClick={() => setSelected(id)}
                 >
@@ -152,7 +183,7 @@ export default function Markets({
         <div className="desk-chart">
           {" "}
           <MarketChart
-            selected={selected || watch[0]}
+            selected={activeInstrument}
             onSelect={setSelected}
             watch={watch}
             quotes={quotes}
@@ -171,7 +202,7 @@ export default function Markets({
           <p className="desk-caption">Context before conviction.</p>
           <button
             className="desk-ask"
-            onClick={() => explore("learn", selected || watch[0] || "NSE:")}
+            onClick={() => explore("learn", activeInstrument || "NSE:")}
           >
             <span>✦</span>
             <strong>Think it through with AI</strong>
@@ -181,9 +212,13 @@ export default function Markets({
             <b>Start a conversation ↗</b>
           </button>
           <div className="desk-section-heading">
-            <h3>Latest reporting</h3>
+            <h3>
+              {allNews || !activeSymbol
+                ? "Across the market"
+                : `Research for ${activeSymbol}`}
+            </h3>
           </div>
-          {articles.slice(0, 5).map((a) => (
+          {stories.slice(0, 5).map((a) => (
             <a
               className="desk-story"
               key={a.id}
@@ -202,15 +237,30 @@ export default function Markets({
               <span>Read source ↗</span>
             </a>
           ))}
-          {!articles.length && (
+          {!stories.length && (
             <div className="desk-empty">
-              <p>No research collected yet.</p>
+              <p>
+                {newsLoading
+                  ? "Finding company coverage…"
+                  : newsError ||
+                    (activeSymbol && !allNews
+                      ? "No matching company coverage in the collected sources. This does not mean there is no news."
+                      : "No research collected yet.")}
+              </p>
               <button
-                onClick={() => explore("news", selected || watch[0] || "NSE:")}
+                onClick={() => explore("news", activeInstrument || "NSE:")}
               >
                 Open research
               </button>
             </div>
+          )}
+          {activeSymbol && (
+            <button
+              className="news-scope"
+              onClick={() => setAllNews((v) => !v)}
+            >
+              {allNews ? `Focus on ${activeSymbol}` : "Show all market news"}
+            </button>
           )}
         </aside>
       </div>

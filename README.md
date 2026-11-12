@@ -8,9 +8,9 @@ Hedgeway brings Indian equities, a personal portfolio, source-linked research an
 
 **There is no demo mode, fabricated price feed, prefilled portfolio or delayed-data fallback.** Without provider credentials, market data stays disconnected. Test fixtures exist only in `tests/` and `browser/`.
 
-![Hedgeway desktop overview showing real public research and IPO records](docs/images/overview-desktop.png)
+![Hedgeway chart workspace with the learning assistant alongside real Upstox data](docs/images/markets-desktop.jpg)
 
-Captured on 8 November 2026 with public-source data and no connected brokerage account. [Mobile view](docs/images/overview-mobile.png).
+Captured on 12 November 2026 with real Upstox chart data. Quotes carry their source timestamps; these are market snapshots, not a promise of a live session. [Mobile conversation view](docs/images/markets-mobile.jpg).
 
 ## Open on Windows without Git
 
@@ -114,7 +114,7 @@ Markets now includes interactive candlesticks, volume, close-price area charts, 
 
 Use **Explain what I’m seeing** to start a company-focused learning conversation, **Check a rebound setup** to carry the company into the scanner, or **Read company news** to filter the research feed. The AI desk offers Teach me, Read the evidence and Challenge my thinking modes. Up to 12 prior turns provide bounded conversational context. Concepts are labeled separately from sourced market observations, and follow-up questions can be clicked into the composer. Learning notes download as Markdown; IPO dates export to calendars.
 
-![Real Upstox market chart](docs/images/markets-desktop.jpg)
+The desktop assistant docks alongside the chart; mobile uses a focused conversation screen. Drafts survive closing the assistant, and outdated responses cannot replace a newly selected company’s conversation. See the [latest UX and architecture reassessment](docs/reviews/2026-11-12-reassessment.md).
 
 See [module-by-module review](docs/MODULE_REVIEW.md), [provider choices](docs/PROVIDERS.md) and [verification record](docs/VERIFICATION.md). The chart library is TradingView Lightweight Charts (Apache-2.0); attribution is retained in the chart.
 

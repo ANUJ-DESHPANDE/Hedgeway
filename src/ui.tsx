@@ -7,7 +7,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { date, money, pct, timestamp } from "./api";
 import type { Article, Quote } from "./types";
 
@@ -115,20 +115,37 @@ export function Modal({
   title,
   onClose,
   children,
+  open = true,
+  variant = "default",
 }: {
+  open?: boolean;
+  variant?: "default" | "assistant";
   title: string;
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const [wide, setWide] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 1100px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1100px)");
+    const update = () => setWide(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const docked = variant === "assistant" && wide;
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
   }, [onClose]);
   useEffect(() => {
+    if (!open) return;
     const prev = document.activeElement as HTMLElement;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (!docked) document.body.style.overflow = "hidden";
     const nodes = () =>
       [
         ...(ref.current?.querySelectorAll<HTMLElement>(
@@ -137,8 +154,12 @@ export function Modal({
       ].filter((node) => node.getClientRects().length > 0);
     nodes()?.[0]?.focus();
     const handle = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeRef.current();
-      if (e.key === "Tab") {
+      if (
+        e.key === "Escape" &&
+        (!docked || ref.current?.contains(document.activeElement))
+      )
+        closeRef.current();
+      if (e.key === "Tab" && !docked) {
         const list = nodes();
         if (!list?.length) return;
         const first = list[0],
@@ -155,21 +176,22 @@ export function Modal({
     document.addEventListener("keydown", handle);
     return () => {
       document.removeEventListener("keydown", handle);
-      document.body.style.overflow = previousOverflow;
+      if (!docked) document.body.style.overflow = previousOverflow;
       prev?.focus();
     };
-  }, []);
+  }, [open, docked]);
   return (
     <div
-      className="modal-backdrop"
+      className={`modal-backdrop ${variant === "assistant" ? `assistant-backdrop ${docked ? "docked" : ""}` : ""}`}
+      style={open ? undefined : { display: "none" }}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (!docked && e.target === e.currentTarget) onClose();
       }}
     >
       <div
         className="modal"
         role="dialog"
-        aria-modal="true"
+        aria-modal={docked ? undefined : true}
         aria-label={title}
         ref={ref}
       >

@@ -105,6 +105,7 @@ test("unconnected AI and scanner guide setup without fabricating results", async
   await expect(
     page.getByRole("button", { name: "Analyze evidence" }),
   ).toBeDisabled();
+  await page.getByText("Need a starting point? Explore six questions").click();
   await page
     .getByRole("button", { name: /What are the strongest themes/ })
     .click();
@@ -398,4 +399,215 @@ test("market candles support exploration, exports and a learning handoff", async
     page.getByRole("button", { name: /Challenge my thinking Assumptions/ }),
   ).toHaveAttribute("aria-pressed", "true");
   expect(errors).toEqual([]);
+});
+
+test("assistant draft survives closing the chart conversation", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Ask Hedgeway", exact: true }).click();
+  const question = page.getByLabel("What would you like to understand?");
+  await question.fill("Help me weigh the risk of a rebound before acting");
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Ask Hedgeway", exact: true }).click();
+  await expect(question).toHaveValue(
+    "Help me weigh the risk of a rebound before acting",
+  );
+});
+
+test("workspace research follows the selected company and labels market-wide mode", async ({
+  page,
+}) => {
+  await page.route("**/api/watchlist", (r) =>
+    r.fulfill({
+      json: [
+        { symbol: "INFY", exchange: "NSE" },
+        { symbol: "RELIANCE", exchange: "NSE" },
+      ],
+    }),
+  );
+  await page.route("**/api/research?*", (r) => r.fulfill({ json: [] }));
+  await page.goto("/");
+  await expect(
+    page.getByText("Research for INFY", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /RELIANCE.*Awaiting feed/ }).click();
+  await expect(
+    page.getByText("Research for RELIANCE", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Show all market news", exact: true })
+    .click();
+  await expect(
+    page.getByText("Across the market", { exact: true }),
+  ).toBeVisible();
+});
+
+test("reopening the same company preserves the current AI draft", async ({
+  page,
+}) => {
+  await page.route("**/api/watchlist", (r) =>
+    r.fulfill({ json: [{ symbol: "INFY", exchange: "NSE" }] }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  await page
+    .getByLabel("What would you like to understand?")
+    .fill("Keep my company-specific draft while I inspect the chart");
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  await expect(
+    page.getByLabel("What would you like to understand?"),
+  ).toHaveValue("Keep my company-specific draft while I inspect the chart");
+});
+
+test("late AI replies cannot replace a newly selected company's discussion", async ({
+  page,
+}) => {
+  await page.route("**/api/watchlist", (r) =>
+    r.fulfill({
+      json: [
+        { symbol: "INFY", exchange: "NSE" },
+        { symbol: "RELIANCE", exchange: "NSE" },
+      ],
+    }),
+  );
+  await page.route("**/api/ai/status", (r) =>
+    r.fulfill({ json: { configured: true, model: "test-fixture" } }),
+  );
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  let received!: () => void;
+  const requested = new Promise<void>((r) => (received = r));
+  await page.route("**/api/ai/ask", async (r) => {
+    received();
+    await held;
+    await r.fulfill({
+      json: {
+        id: "old-run",
+        threadId: "old-thread",
+        question: "INFY only",
+        createdAt: new Date().toISOString(),
+        model: "test-fixture",
+        sources: [],
+        coverage: { items: 0, publishers: 0, excerptOnly: true },
+        answer: {
+          summary: "Old INFY answer",
+          findings: [],
+          risks: [],
+          scenarios: [],
+          openQuestions: [],
+        },
+      },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  await page
+    .getByRole("button", { name: "Analyze evidence", exact: true })
+    .click();
+  await requested;
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await page.getByRole("button", { name: /RELIANCE.*Awaiting feed/ }).click();
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  await expect(page.getByLabel("Focus symbol · optional")).toHaveValue(
+    "RELIANCE",
+  );
+  release();
+  await expect(
+    page.getByRole("button", { name: "Analyze evidence", exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByText("Old INFY answer", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByLabel("What would you like to understand?"),
+  ).toHaveValue(/NSE:RELIANCE/);
+});
+
+test("desktop assistant leaves the watchlist interactive", async ({
+  page,
+}, info) => {
+  test.skip(
+    info.project.name !== "desktop",
+    "Phone uses a focused modal conversation.",
+  );
+  await page.route("**/api/watchlist", (r) =>
+    r.fulfill({
+      json: [
+        { symbol: "INFY", exchange: "NSE" },
+        { symbol: "RELIANCE", exchange: "NSE" },
+      ],
+    }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Ask Hedgeway", exact: true }).click();
+  await expect(page.getByRole("dialog")).not.toHaveAttribute(
+    "aria-modal",
+    "true",
+  );
+  await page.getByRole("button", { name: /RELIANCE.*Awaiting feed/ }).click();
+  await expect(page.getByLabel("Chart company")).toHaveValue("NSE:RELIANCE");
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("chart context is restored after opening a saved discussion", async ({
+  page,
+}) => {
+  await page.route("**/api/watchlist", (r) =>
+    r.fulfill({ json: [{ symbol: "INFY", exchange: "NSE" }] }),
+  );
+  await page.route("**/api/ai/threads", (r) =>
+    r.fulfill({ json: [{ id: "saved-thread", title: "Earlier discussion" }] }),
+  );
+  await page.route("**/api/ai/threads/saved-thread", (r) =>
+    r.fulfill({ json: [] }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  await page.getByLabel("Saved discussions").selectOption("saved-thread");
+  await expect(page.getByLabel("Focus symbol · optional")).toHaveValue("");
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  await expect(page.getByLabel("Focus symbol · optional")).toHaveValue("INFY");
+});
+
+test("late saved-discussion loads cannot overwrite chart context", async ({
+  page,
+}) => {
+  await page.route("**/api/watchlist", (r) =>
+    r.fulfill({
+      json: [
+        { symbol: "INFY", exchange: "NSE" },
+        { symbol: "RELIANCE", exchange: "NSE" },
+      ],
+    }),
+  );
+  await page.route("**/api/ai/threads", (r) =>
+    r.fulfill({ json: [{ id: "saved-thread", title: "Earlier discussion" }] }),
+  );
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  let received!: () => void;
+  const requested = new Promise<void>((r) => (received = r));
+  await page.route("**/api/ai/threads/saved-thread", async (r) => {
+    received();
+    await held;
+    await r.fulfill({ json: [] });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  await page.getByLabel("Saved discussions").selectOption("saved-thread");
+  await requested;
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await page.getByRole("button", { name: /RELIANCE.*Awaiting feed/ }).click();
+  await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
+  release();
+  await expect(
+    page.getByRole("button", { name: "New discussion", exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByLabel("Focus symbol · optional")).toHaveValue(
+    "RELIANCE",
+  );
 });

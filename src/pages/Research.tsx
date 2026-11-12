@@ -106,19 +106,6 @@ export default function Research({
             Help me understand this research
           </button>
           <button
-            disabled={busy}
-            onClick={() =>
-              redditReady
-                ? action(
-                    () => post("/research/reddit"),
-                    "Reddit posts imported",
-                  )
-                : go("Integrations")
-            }
-          >
-            {redditReady ? "Sync Reddit" : "Connect Reddit"}
-          </button>
-          <button
             className="primary"
             disabled={busy}
             onClick={() =>
@@ -216,46 +203,79 @@ export default function Research({
           )}
         </Panel>
         <div>
-          <Panel title="Read with context">
+          <Panel title="Read. Verify. Decide.">
             <div className="insight-copy">
               <div className="insight-icon">
                 <BookOpen size={22} />
               </div>
-              <h3>Signals are a starting point.</h3>
+              <h3>Build a view, not a headline reaction.</h3>
               <p>
-                Headline tone uses a small, transparent word lexicon. It can
-                miss sarcasm, nuance and context. It is not a trading signal.
+                Read the original, compare independent sources, then ask what
+                would change your mind.
               </p>
-              <hr />
-              <h4>Sources in your workspace</h4>
-              <ul className="source-health-list">
-                {sources.map((s) => (
-                  <li key={s.name}>
-                    <div>
-                      <strong>{s.name}</strong>
-                      <span
-                        className={`tag ${s.status === "error" ? "amber" : ""}`}
-                      >
-                        {s.category === "official"
-                          ? "Official disclosure"
-                          : s.category === "community"
-                            ? "Trader opinions"
-                            : "Reporting"}
-                      </span>
-                    </div>
-                    <small>
-                      {s.count} stored items · latest {timestamp(s.newest)}
-                    </small>
-                    {s.status === "error" ? (
-                      <p className="subtle">
-                        Unavailable on last refresh: {s.message}
-                      </p>
-                    ) : s.status === "not_fetched" ? (
-                      <p className="subtle">Not fetched yet</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+              <button
+                className="primary"
+                disabled={!items.length}
+                onClick={() =>
+                  learn?.(/^[A-Z0-9&_.-]{1,30}$/.test(query) ? query : "")
+                }
+              >
+                Discuss the evidence
+              </button>
+              <div className="research-coverage">
+                <strong>
+                  {sources.filter((s) => s.count > 0).length} sources with
+                  stored items
+                </strong>
+                <span>
+                  {sources.filter((s) => s.status === "error").length}{" "}
+                  unavailable on last refresh
+                </span>
+              </div>
+              <details className="source-directory">
+                <summary>Sources, freshness & connections</summary>
+                <ul className="source-health-list">
+                  {sources.map((s) => (
+                    <li key={s.name}>
+                      <div>
+                        <strong>{s.name}</strong>
+                        <span
+                          className={`tag ${s.status === "error" ? "amber" : ""}`}
+                        >
+                          {s.category === "official"
+                            ? "Official disclosure"
+                            : s.category === "community"
+                              ? "Trader opinions"
+                              : "Reporting"}
+                        </span>
+                      </div>
+                      <small>
+                        {s.count} stored items · latest {timestamp(s.newest)}
+                      </small>
+                      {s.status === "error" ? (
+                        <p className="subtle">
+                          Unavailable on last refresh: {s.message}
+                        </p>
+                      ) : s.status === "not_fetched" ? (
+                        <p className="subtle">Not fetched yet</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    redditReady
+                      ? action(
+                          () => post("/research/reddit"),
+                          "Reddit posts imported",
+                        )
+                      : go("Integrations")
+                  }
+                >
+                  {redditReady ? "Sync Reddit" : "Connect Reddit"}
+                </button>
+              </details>
               <p>
                 Open the original article before acting. Forums contain
                 unverified opinions.

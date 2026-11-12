@@ -40,46 +40,70 @@ export default function Integrations({
   const isKite = status.marketProvider === "kite";
   return (
     <>
-      <Panel
-        title="Connect your prices"
-        sub="Pick one price provider. You can keep your portfolio with a different broker."
-      >
-        <div className="integration-body connection-steps">
-          <label>
-            1. Choose a provider
-            <select
-              value={status.marketProvider}
-              disabled={busy}
-              onChange={(e) =>
-                action(
-                  () => post("/market/provider", { provider: e.target.value }),
-                  "Price provider updated",
-                )
-              }
-            >
-              <option value="yahoo">
-                Yahoo research · no account · NSE snapshots
-              </option>
-              <option value="upstox">
-                Upstox · free · Upstox account required
-              </option>
-              <option value="kite">Zerodha Kite · paid market data plan</option>
-            </select>
-          </label>
-          <p>
-            {isYahoo
-              ? "No signup or API key. Unofficial NSE snapshots and historical candles; timing and availability are not guaranteed. Select Yahoo explicitly; it never substitutes for a failed broker feed."
-              : isKite
-                ? "Use Kite for both your holdings and prices. Live prices and history need its market-data plan."
-                : "Upstox provides a free, read-only Analytics Token. This is a key for market data; Hedgeway does not place trades."}
-          </p>
-          <p className="subtle">
-            {isYahoo
-              ? "Add NSE companies in Markets, then select Refresh quotes. Yahoo supports 1-minute and 5-minute research candles, with no BSE ticker mapping."
-              : "After connecting, add companies in Markets. Prices start updating automatically."}
-          </p>
+      {status.upstox && !isKite && !isYahoo && (
+        <div className="connection-summary">
+          <div>
+            <span className="eyebrow">MARKET DATA</span>
+            <h2>Upstox is connected.</h2>
+            <p>
+              Your read-only connection is configured. Check price timestamps in
+              the workspace for freshness.
+            </p>
+          </div>
+          <button className="primary" onClick={() => go("Markets")}>
+            Back to workspace <ArrowRight size={16} />
+          </button>
         </div>
-      </Panel>
+      )}
+      <details
+        className="provider-settings"
+        open={!status.upstox || isKite || isYahoo}
+      >
+        <summary>Price provider settings</summary>
+        <Panel
+          title="Connect your prices"
+          sub="Pick one price provider. You can keep your portfolio with a different broker."
+        >
+          <div className="integration-body connection-steps">
+            <label>
+              1. Choose a provider
+              <select
+                value={status.marketProvider}
+                disabled={busy}
+                onChange={(e) =>
+                  action(
+                    () =>
+                      post("/market/provider", { provider: e.target.value }),
+                    "Price provider updated",
+                  )
+                }
+              >
+                <option value="yahoo">
+                  Yahoo research · no account · NSE snapshots
+                </option>
+                <option value="upstox">
+                  Upstox · free · Upstox account required
+                </option>
+                <option value="kite">
+                  Zerodha Kite · paid market data plan
+                </option>
+              </select>
+            </label>
+            <p>
+              {isYahoo
+                ? "No signup or API key. Unofficial NSE snapshots and historical candles; timing and availability are not guaranteed. Select Yahoo explicitly; it never substitutes for a failed broker feed."
+                : isKite
+                  ? "Use Kite for both your holdings and prices. Live prices and history need its market-data plan."
+                  : "Upstox provides a free, read-only Analytics Token. This is a key for market data; Hedgeway does not place trades."}
+            </p>
+            <p className="subtle">
+              {isYahoo
+                ? "Add NSE companies in Markets, then select Refresh quotes. Yahoo supports 1-minute and 5-minute research candles, with no BSE ticker mapping."
+                : "After connecting, add companies in Markets. Prices start updating automatically."}
+            </p>
+          </div>
+        </Panel>
+      </details>
       {isYahoo && (
         <Panel
           title="Research without an account"

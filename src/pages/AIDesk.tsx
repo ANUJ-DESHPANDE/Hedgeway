@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   MessageSquare,
@@ -43,6 +43,27 @@ export default function AIDesk({
     [threads, setThreads] = useState<{ id: string; title: string }[]>([]),
     [runs, setRuns] = useState<AIRun[]>([]),
     [coverage, setCoverage] = useState<AIRun["coverage"] | null>(null);
+  const previousSeed = useRef(seed);
+  const conversationGeneration = useRef(0);
+  useEffect(() => {
+    if (!seed) return;
+    const previous = previousSeed.current;
+    if (
+      previous?.symbol === seed.symbol &&
+      previous?.question === seed.question &&
+      previous?.scan?.id === seed.scan?.id
+    )
+      return;
+    previousSeed.current = seed;
+    conversationGeneration.current++;
+    // A new instrument starts its own conversation rather than mixing theses.
+    setQuestion(seed.question);
+    setSymbol(seed.symbol);
+    setScan(seed.scan || null);
+    setThreadId("");
+    setRuns([]);
+    setError("");
+  }, [seed]);
   const refresh = () =>
     Promise.all([api("/ai/status"), api("/ai/threads")]).then(([s, t]) => {
       setStatus(s);
@@ -69,6 +90,7 @@ export default function AIDesk({
     if (busy) return;
     setBusy(true);
     setError("");
+    const generation = conversationGeneration.current;
     try {
       const result = await post<AIRun>("/ai/ask", {
         question,
@@ -79,12 +101,17 @@ export default function AIDesk({
         ...(scan ? { scanId: scan.id } : {}),
         ...(threadId ? { threadId } : {}),
       });
+      if (generation !== conversationGeneration.current) {
+        await refresh();
+        return;
+      }
       setRuns((r) => [...r, result]);
       setThreadId(result.threadId);
       setQuestion("");
       await refresh();
     } catch (e) {
-      setError((e as Error).message);
+      if (generation === conversationGeneration.current)
+        setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -95,7 +122,7 @@ export default function AIDesk({
         className={
           compact ? "assistant-source-details" : "assistant-source-expanded"
         }
-        open={!compact || status?.configured === false}
+        open={status?.configured === false}
       >
         <summary>Sources & AI connection</summary>
         <Panel
@@ -226,6 +253,8 @@ export default function AIDesk({
           <button
             disabled={busy}
             onClick={() => {
+              previousSeed.current = null;
+              conversationGeneration.current++;
               setThreadId("");
               setRuns([]);
               setQuestion("");
@@ -243,12 +272,15 @@ export default function AIDesk({
               disabled={busy}
               onChange={async (e) => {
                 const id = e.target.value;
+                previousSeed.current = null;
+                const generation = ++conversationGeneration.current;
                 setBusy(true);
                 setError("");
                 try {
                   const saved = id
                     ? await api<AIRun[]>(`/ai/threads/${id}`)
                     : [];
+                  if (generation !== conversationGeneration.current) return;
                   setRuns(saved);
                   setThreadId(id);
                   setScan(saved.at(-1)?.scan || null);
@@ -257,7 +289,8 @@ export default function AIDesk({
                   );
                   setApproach(saved.at(-1)?.approach || "learn");
                 } catch (e) {
-                  setError((e as Error).message);
+                  if (generation === conversationGeneration.current)
+                    setError((e as Error).message);
                 } finally {
                   setBusy(false);
                 }
@@ -297,21 +330,24 @@ export default function AIDesk({
         )}
       </div>
       {!runs.length && !compact && (
-        <div className="prompt-grid">
-          {[
-            "What are the strongest themes in the latest news, and what contradicts them?",
-            "Which catalysts deserve attention, and what evidence is still missing?",
-            "Help me challenge a dip-and-rebound thesis before I act.",
-            "Teach me why a price below its recent average is not automatically a bargain.",
-            "Explain VWAP, volume confirmation and invalidation in simple terms.",
-            "Walk me through how fees and a stop-loss change a short-term trade.",
-          ].map((text) => (
-            <button key={text} onClick={() => setQuestion(text)}>
-              <Sparkles size={16} />
-              <span>{text}</span>
-            </button>
-          ))}
-        </div>
+        <details className="ai-starters">
+          <summary>Need a starting point? Explore six questions</summary>
+          <div className="prompt-grid">
+            {[
+              "What are the strongest themes in the latest news, and what contradicts them?",
+              "Which catalysts deserve attention, and what evidence is still missing?",
+              "Help me challenge a dip-and-rebound thesis before I act.",
+              "Teach me why a price below its recent average is not automatically a bargain.",
+              "Explain VWAP, volume confirmation and invalidation in simple terms.",
+              "Walk me through how fees and a stop-loss change a short-term trade.",
+            ].map((text) => (
+              <button key={text} onClick={() => setQuestion(text)}>
+                <Sparkles size={16} />
+                <span>{text}</span>
+              </button>
+            ))}
+          </div>
+        </details>
       )}
       {runs.map((run, index) =>
         index === runs.length - 1 ? (
@@ -390,8 +426,12 @@ export default function AIDesk({
               <input
                 value={symbol}
                 onChange={(e) => {
+                  previousSeed.current = null;
+                  conversationGeneration.current++;
                   setSymbol(e.target.value.toUpperCase());
                   setScan(null);
+                  setThreadId("");
+                  setRuns([]);
                 }}
                 placeholder="All research"
                 maxLength={30}

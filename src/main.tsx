@@ -114,6 +114,7 @@ function App() {
     [toast, setToast] = useState<{ text: string; error: boolean } | null>(null),
     [search, setSearch] = useState(false),
     [assistantOpen, setAssistantOpen] = useState(false),
+    [assistantMounted, setAssistantMounted] = useState(false),
     [importing, setImporting] = useState(false),
     [version, setVersion] = useState(0);
   const [streamStatus, setStreamStatus] = useState<{
@@ -122,6 +123,9 @@ function App() {
     message: string;
     lastTickAt: string | null;
   } | null>(null);
+  useEffect(() => {
+    if (assistantOpen) setAssistantMounted(true);
+  }, [assistantOpen]);
   const loadedMode = useRef(mode);
   const show = useCallback(
     (text: string, error = false) => setToast({ text, error }),
@@ -326,7 +330,7 @@ function App() {
   if (!session.authenticated)
     return <Login onLogin={() => api("/session").then(setSession)} />;
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${assistantOpen ? "assistant-visible" : ""}`}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -599,7 +603,9 @@ function App() {
                   />
                 )}
                 {page === "AI desk" && (
-                  <AIDesk seed={aiSeed} go={go} show={show} />
+                  <div className="ai-fullscreen">
+                    <AIDesk seed={aiSeed} go={go} show={show} />
+                  </div>
                 )}
                 {page === "Setup scanner" && (
                   <SetupScanner
@@ -720,8 +726,13 @@ function App() {
           </button>
         </div>
       )}
-      {assistantOpen && (
-        <Modal title="Ask Hedgeway" onClose={() => setAssistantOpen(false)}>
+      {assistantMounted && (
+        <Modal
+          open={assistantOpen}
+          variant="assistant"
+          title="Ask Hedgeway"
+          onClose={() => setAssistantOpen(false)}
+        >
           <div className="workspace-assistant">
             <Suspense fallback={<p>Opening your conversation…</p>}>
               <AIDesk
