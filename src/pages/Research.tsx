@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api, post, remove, timestamp } from "../api";
 import type { Article, Mode } from "../types";
 import type { Action, Page } from "../navigation";
-import { Empty, Panel, Story } from "../ui";
+import { Empty, Modal, Panel, Story } from "../ui";
 export default function Research({
   mode,
   seed = "",
@@ -16,13 +16,42 @@ export default function Research({
 }: {
   mode: Mode;
   seed?: string;
-  learn?: (symbol: string) => void;
+  learn?: (symbol: string, article?: Article) => void;
   action: Action;
   busy: boolean;
   version: number;
   redditReady: boolean;
   go: (page: Page) => void;
 }) {
+  const [reading, setReading] = useState<Article | null>(null);
+  const [feedVersion, setFeedVersion] = useState(0);
+  const [refreshState, setRefreshState] = useState("");
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      if (document.hidden) return;
+      setRefreshState("Checking for new reporting…");
+      post("/research/refresh")
+        .then(() => {
+          if (active) {
+            setFeedVersion((v) => v + 1);
+            setRefreshState("Reporting checked");
+          }
+        })
+        .catch(() => {
+          if (active)
+            setRefreshState(
+              "Some sources could not refresh. Saved reporting remains available.",
+            );
+        });
+    };
+    refresh();
+    const timer = setInterval(refresh, 300000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
   const [sources, setSources] = useState<
     {
       name: string;
@@ -43,7 +72,7 @@ export default function Research({
     return () => {
       active = false;
     };
-  }, [version]);
+  }, [version, feedVersion]);
   const [items, setItems] = useState<Article[]>([]),
     [query, setQuery] = useState(seed),
     [kind, setKind] = useState(""),
@@ -76,9 +105,46 @@ export default function Research({
       active = false;
       clearTimeout(timer);
     };
-  }, [mode, query, kind, saved, version]);
+  }, [mode, query, kind, saved, version, feedVersion]);
   return (
     <>
+      {reading && (
+        <Modal title="Read the evidence" onClose={() => setReading(null)}>
+          <div className="source-reader">
+            <span className="desk-kicker">
+              {reading.kind === "forum"
+                ? "COMMUNITY OPINION"
+                : "SOURCE EXCERPT"}
+            </span>
+            <h2>{reading.title}</h2>
+            <p className="subtle">
+              {reading.source} · Published {timestamp(reading.publishedAt)}
+            </p>
+            <blockquote>{reading.summary}</blockquote>
+            <p className="subtle">
+              This is the collected excerpt, not the full document. Open the
+              original for complete context.
+            </p>
+            <div className="button-row">
+              <a href={reading.url} target="_blank" rel="noreferrer">
+                Open original source ↗
+              </a>
+              <button
+                className="primary"
+                onClick={() => {
+                  learn?.(reading.symbols[0] || "", reading);
+                  setReading(null);
+                }}
+              >
+                Discuss this evidence
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      <p className="research-refresh-state" role="status">
+        {refreshState}
+      </p>
       <div className="toolbar">
         <div className="tabs">
           {[
@@ -155,6 +221,7 @@ export default function Research({
               <Story
                 key={a.id}
                 article={a}
+                onRead={setReading}
                 onSave={(a) =>
                   action(
                     () =>

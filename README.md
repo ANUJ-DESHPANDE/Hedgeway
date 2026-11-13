@@ -31,11 +31,11 @@ npm start
 
 Open **http://localhost:4100**. The setup command creates a private `.env` and a random token-encryption key without printing secrets. Default local access binds only to loopback. Windows, macOS and Linux use the same commands.
 
-1. Open **Integrations** and select Upstox or Kite for market data.
+1. Open **Settings** and select Upstox or Kite for market data.
 2. For Upstox, enter an account-issued Analytics Token in the app's connection form. For Kite, configure its app credentials and sign in through Zerodha.
-3. Add NSE trading symbols or BSE scrip codes in **Markets**, or import your real holdings CSV in **Portfolio**.
+3. Add NSE trading symbols or BSE scrip codes in **Explore → Companies**, or import your real holdings CSV in **Portfolio**.
 4. The selected broker stream connects automatically when credentials and instruments are present. Watch the connection banner and quote timestamps.
-5. Refresh **Research** and **IPOs**, or leave the enabled scheduler running.
+5. Open **Explore → Stories** for automatically refreshed research, and **Explore → IPOs**, or leave the enabled scheduler running.
 6. Open **Setup scanner** to check a stock against your recent-average and rebound conditions using completed broker candles.
 7. In **AI desk**, use Google Gemini to learn concepts, challenge a thesis or discuss a saved scan. Use a free-tier Google AI Studio project with billing disabled. Requests are explicit, portfolio sharing is off by default, and quota exhaustion never triggers a paid fallback.
 
@@ -50,7 +50,7 @@ Open **http://localhost:4100**. The setup command creates a private `.env` and a
 | Research      | Economic Times, Moneycontrol and ValuePickr RSS adapters; approved Reddit OAuth adapter; canonical-URL deduplication; FTS5 search; short excerpts; bookmarks; symbol tagging and transparent lexicon sentiment                                                                                       |
 | IPOs          | Real Xflot issue data; price bands, lots, dates and subscriptions; reported GMP with disputed-data flags; category detail and stored snapshots; historical GMP-versus-listing outcome study                                                                                                          |
 | Strategy lab  | Real broker daily prices or uploaded CSV; moving-average long/cash backtest with a full-bar signal delay, costs, drawdown, annualised volatility, Sharpe, historical VaR and expected shortfall; downloadable inputs, parameters, data fingerprint and results                                       |
-| AI desk       | Source-linked analysis and follow-up discussions through Google Gemini; evidence snapshots, coverage and timestamps; strict structured answers; encrypted API key and optional portfolio sharing                                                                                          |
+| AI desk       | Source-linked analysis and follow-up discussions through Google Gemini; evidence snapshots, coverage and timestamps; strict structured answers; encrypted API key and provider-specific portfolio privacy                                                                                          |
 | Setup scanner | Configurable 1/3/5-minute broker candles; prior-bar moving average, rebound, rising closes, volume, ATR and VWAP; completed-bar and freshness checks; hypothetical costs and risk sizing; saved scans, reproducible evidence export and exact-scan AI handoff                                        |
 | Journal       | Persistent investment theses, risk/invalidation notes, catalysts and NSE price alerts; alerts evaluated on stream persistence and explicit quote refresh                                                                                                                                             |
 | Operations    | Database migrations, transactions and indexes; encrypted broker tokens; protected sessions; origin checks; request limits; job history; health endpoint; backup command; Docker deployment and CI                                                                                                    |
@@ -64,6 +64,16 @@ The code is fully integrated, but brokers still require account authorization:
 - **Kite:** personal portfolio APIs and the streaming-data entitlement are separate. Zerodha currently lists [streaming and historical access at ₹500/month](https://zerodha.com/products/api). The free Personal API can be used for holdings while Upstox supplies quotes. Kite access tokens expire daily; Hedgeway requires a fresh official login.
 
 Broker credentials, account creation, subscriptions and exchange-data entitlements are not bundled with this repository. Free API use does not imply permission to redistribute exchange data publicly. Rates and access conditions can change; verify the linked provider documentation.
+
+## Personal market desk
+
+**Today** brings your watchlist, dated reporting, tracked-company moves and sector samples together. **Explore** keeps Companies, Stories, IPOs and Setups visible. **Notebook** reopens saved conversations, sources, notes and experiments. Existing direct feature URLs remain supported.
+
+Ask Hedgeway is a single conversation surface across the app. Questions and selected evidence are saved locally; chart handoffs attach a retained candle snapshot, and story handoffs attach the collected source excerpt. Conversation context retrieves recent turns and relevant older corrections without a background summarization charge. It is bounded context, not unlimited model memory. Free-tier Gemini requests exclude imported portfolio data.
+
+The ChatGPT subscription connection uses the documented official local-app authorization flow, with encrypted account tokens and explicit model discovery. **Subscription generation is disabled in this release**: actual account entitlement and included-only credit behavior have not been verified. Connecting does not enable paid API billing or send inference requests. Gemini remains an explicit existing option; there is no silent provider fallback.
+
+When updating an existing installation, keep its `.env` and database directory. They contain the encryption key and saved connections. Run `git pull`, `npm ci`, `npm run build`, then `npm start`; do not copy credentials into source files or GitHub.
 
 ## Engineering overview
 

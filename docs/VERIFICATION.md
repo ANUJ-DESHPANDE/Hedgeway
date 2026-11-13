@@ -48,3 +48,15 @@ GitHub Actions repeats tests, production build, dependency audit, desktop/mobile
 ## CI infrastructure follow-up — 12 November
 
 The first published run passed tests, build and audit, then failed while Ubuntu package mirrors could not be resolved during Playwright dependency installation. CI now pins Ubuntu 24.04 and verifies/uses a preinstalled Chrome or Chromium when available; it falls back to the normal Playwright installer otherwise. Browser tests are not skipped.
+
+## Personal market desk follow-up — 13 November
+
+The working tree and live database were backed up before resuming the redesign. Today/Explore/Portfolio/Notebook replace the earlier navigation. The assistant now uses a conversational composer, persisted drafts, source excerpts and retained chart snapshots. Default research mixes reporting, disclosures and community sources; explicit searches and filters remain chronological.
+
+Visual inspection covered 1440×900, 1366×768 and 390×844 viewports with real stored quotes/reporting. No horizontal page overflow was found. Inspection caught a declining-only market being presented as missing observations; the Today view now includes decliners. Screenshots are retained in the private execution workspace, not presented as proof of active-session latency.
+
+The official subscription documentation was checked at https://developers.openai.com/siwc/token-sharing-open-source and its sign-in, profiles, models and preview-limitations pages. A local authorization connector and read-only model discovery are implemented. Identity signature, nonce, audience, issuer and expiry validation have regression coverage. Actual account authorization and inference have **not** been verified; subscription generation remains disabled. No paid usage was enabled.
+
+This remains a personal single-owner application. Nifty-wide verified universe coverage, full-document/forum-thread ingestion, streamed/cancellable assistant generation, versioned durable semantic memory and target-PC acceptance are not completed by this revision. Existing RSS excerpts, bounded extractive memory and scoped tracked-company rankings must not be described as those capabilities.
+
+Latest automated result: **127 unit/API tests across 16 files passed**; **31 browser cases passed, one skipped** because the desktop-only dock interaction does not apply to mobile. The production build is checked separately for the final source tree.

@@ -1,3 +1,5 @@
+import { conversationMemory } from "./conversation-memory.js";
+import { readChartContext } from "./chart-context.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { DB } from "./db/index.js";
@@ -362,11 +364,17 @@ export async function askAI(
     scanId?: string;
     approach?: "learn" | "research" | "challenge";
     refreshResearch?: boolean;
+    chartSnapshotId?: string;
+    articleId?: string;
   },
 ): Promise<AIRun> {
   if (active.has(db))
     throw new Error(
       "One AI request is already running. Wait for it to finish.",
+    );
+  if (input.includePortfolio && aiProvider(db) === "gemini")
+    throw new Error(
+      "Private holdings and sizing are not sent through the free Gemini connection. Portfolio calculations remain available locally.",
     );
   const key = aiKey(db);
   if (!key)
@@ -393,32 +401,62 @@ export async function askAI(
           ? 24
           : 50,
     );
+    if (input.articleId) {
+      const article = row<{
+        id: string;
+        title: string;
+        summary: string;
+        source: string;
+        kind: string;
+        canonical_url: string;
+        published_at: string;
+      }>(db, "SELECT * FROM articles WHERE id=?", input.articleId);
+      if (!article)
+        throw new Error(
+          "The selected source is no longer available. Choose another source before continuing.",
+        );
+      packet.sources.push({
+        id: "R1",
+        kind: article.kind === "forum" ? "forum" : "article",
+        title: article.title,
+        source: article.source,
+        url: article.canonical_url,
+        asOf: article.published_at,
+        content: article.summary.slice(0, 3000),
+      });
+    }
+    if (input.chartSnapshotId) {
+      const chart = readChartContext(db, input.chartSnapshotId, input.symbol);
+      packet.sources.push({
+        id: "C1",
+        kind: "market",
+        title: `${chart.exchange}:${chart.symbol} attached ${chart.interval} chart window`,
+        source: chart.source,
+        url: null,
+        asOf: chart.fetchedAt,
+        content: JSON.stringify({
+          ...chart,
+          note: "Exact retained chart observations, at most last 60 available bars. The latest bar may be forming. This is not the visible pixel viewport or a fresh quote; do not assume every bar is complete.",
+        }),
+      });
+    }
     if (!packet.sources.length && input.approach !== "learn")
       throw new Error(
         "No relevant evidence is available. Refresh Research, add market data, or clear the symbol filter.",
       );
     const previous = input.threadId
-      ? rows<{ payload: string }>(
-          db,
-          "SELECT payload FROM ai_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 12",
-          input.threadId,
-        )
-          .reverse()
-          .map((r) => JSON.parse(r.payload) as AIRun)
-          .filter(
-            (run) => input.includePortfolio || !run.coverage.portfolioIncluded,
+      ? conversationMemory(
+          rows<{ payload: string }>(
+            db,
+            "SELECT payload FROM ai_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 200",
+            input.threadId,
           )
-          .map((run) => ({
-            question: run.question.slice(0, 800),
-            summary: run.answer.summary.slice(0, 1200),
-            concepts: run.answer.findings.slice(0, 2).map((f) => ({
-              heading: f.heading,
-              assessment: f.assessment.slice(0, 350),
-            })),
-            openQuestions: run.answer.openQuestions.slice(0, 3),
-          }))
+            .reverse()
+            .map((r) => JSON.parse(r.payload) as AIRun),
+          input.question,
+          input.includePortfolio,
+        )
       : [];
-    while (JSON.stringify(previous).length > 10000) previous.shift();
     const model = aiStatus(db).model;
     const requestBody = {
       model,
@@ -492,6 +530,13 @@ export async function askAI(
             : null,
         };
       } catch (error) {
+        if (
+          error instanceof Error &&
+          /timeout|abort/i.test(`${error.name} ${error.message}`)
+        )
+          throw new Error(
+            "The model took too long to respond. Your question and existing discussion are preserved; retry when ready.",
+          );
         if (error instanceof Error && error.message.includes("HTTP 429"))
           throw new Error(
             "Gemini's free quota is currently exhausted. Try later. No paid model was called.",
@@ -533,6 +578,8 @@ export async function askAI(
       id: randomUUID(),
       threadId: input.threadId || randomUUID(),
       question: input.question,
+      chartSnapshotId: input.chartSnapshotId,
+      articleId: input.articleId,
       approach: input.approach || "research",
       symbol: input.symbol,
       model,

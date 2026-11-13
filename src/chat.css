@@ -1,0 +1,321 @@
+.hedgeway-chat {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  color: var(--text);
+  gap: 0;
+}
+.hedgeway-chat .chat-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+.hedgeway-chat .chat-toolbar .button-row {
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.hedgeway-chat .chat-toolbar button {
+  font-size: 11px;
+  padding: 7px 9px;
+  background: transparent;
+}
+.hedgeway-chat .chat-toolbar select {
+  max-width: 210px;
+  min-width: 0;
+  padding: 7px;
+  font-size: 11px;
+}
+.hedgeway-chat .chat-messages {
+  flex: 1;
+  min-height: 0;
+  padding: 20px 0;
+  overflow: visible;
+}
+.hedgeway-chat .chat-welcome {
+  padding: 48px 12px 36px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.hedgeway-chat .chat-welcome > svg {
+  color: var(--accent);
+  margin-bottom: 20px;
+}
+.hedgeway-chat .chat-welcome h2 {
+  margin: 0 0 12px;
+  font-size: clamp(25px, 3vw, 36px);
+  font-weight: 500;
+  letter-spacing: -1px;
+  line-height: 1.15;
+}
+.hedgeway-chat .chat-welcome > p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+.hedgeway-chat .chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 28px;
+}
+.hedgeway-chat .chat-suggestions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 400;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: transparent;
+}
+.hedgeway-chat .chat-turn {
+  margin-bottom: 28px;
+}
+.hedgeway-chat .chat-user-message {
+  margin: 0 0 20px auto;
+  width: fit-content;
+  max-width: 88%;
+  border-radius: 18px 18px 4px 18px;
+  background: var(--surface-2, #20272b);
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+  line-height: 1.65;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.hedgeway-chat .chat-turn > .panel {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  margin: 0;
+  overflow: visible;
+}
+.hedgeway-chat .chat-turn .panel-head {
+  padding: 0 0 12px;
+  border: 0;
+  align-items: flex-start;
+  gap: 10px;
+}
+.hedgeway-chat .chat-turn .panel-head h2 {
+  font-size: 13px;
+  color: var(--accent);
+}
+.hedgeway-chat .chat-turn .panel-head button {
+  padding: 5px 8px;
+  font-size: 10px;
+  background: transparent;
+}
+.hedgeway-chat .chat-turn .panel-head p {
+  font-size: 10px;
+}
+.hedgeway-chat .ai-report {
+  padding: 0;
+}
+.hedgeway-chat .ai-summary {
+  font-size: 14px;
+  line-height: 1.8;
+  font-weight: 400;
+}
+.hedgeway-chat .evidence-findings {
+  display: block;
+}
+.hedgeway-chat .evidence-findings section {
+  background: transparent;
+  padding: 16px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+.hedgeway-chat .two-columns {
+  display: block;
+}
+.hedgeway-chat .ai-report .two-columns > section {
+  padding: 8px 0;
+}
+.hedgeway-chat .chat-usage {
+  display: none;
+}
+.hedgeway-chat .chat-composer-wrap {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding-top: 10px;
+  background: var(--surface, #11181c);
+}
+.hedgeway-chat .ai-question.chat-composer {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-2, #20272b);
+}
+.hedgeway-chat .ai-question .chat-input-label {
+  margin: 0;
+  display: block;
+}
+.hedgeway-chat .chat-input-label textarea {
+  display: block;
+  resize: vertical;
+  width: 100%;
+  min-height: 64px;
+  max-height: 180px;
+  padding: 6px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  font-family: inherit;
+  line-height: 1.6;
+  font-size: 13px;
+}
+.hedgeway-chat .chat-input-label textarea:focus {
+  outline: none;
+}
+.hedgeway-chat .chat-composer:focus-within {
+  border-color: var(--accent);
+}
+.hedgeway-chat .chat-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+}
+.hedgeway-chat .chat-composer-actions select {
+  min-width: 0;
+  width: auto;
+  max-width: 170px;
+  padding: 6px;
+  background: transparent;
+  border: 0;
+  font-size: 11px;
+}
+.hedgeway-chat .chat-settings-button {
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hedgeway-chat .chat-send {
+  margin-left: auto;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+.hedgeway-chat .chat-footnote {
+  font-size: 10px;
+  text-align: center;
+  color: var(--muted);
+  margin: 10px 0;
+}
+.hedgeway-chat .chat-connect-hint {
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  justify-content: center;
+}
+.hedgeway-chat .chat-settings {
+  padding: 16px 4px;
+  border-top: 1px solid var(--border);
+}
+.hedgeway-chat .chat-settings[hidden] {
+  display: none;
+}
+.hedgeway-chat .chat-settings > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.hedgeway-chat .chat-settings .disclosure {
+  margin-top: 12px;
+}
+.hedgeway-chat .chat-settings p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.hedgeway-chat .chat-settings .token-form {
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.hedgeway-chat .chat-settings .token-form label {
+  width: 100%;
+}
+.hedgeway-chat .chat-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 20px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.hedgeway-chat .chat-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  background: #b84f4314;
+  border: 1px solid #b84f4338;
+  border-radius: 10px;
+}
+.hedgeway-chat .chat-error button {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+.hedgeway-chat .chat-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.hedgeway-chat.chat-full {
+  max-width: 820px;
+  margin: 0 auto;
+  min-height: calc(100dvh - 180px);
+}
+.hedgeway-chat .chat-composer-wrap:has(.chat-settings:not([hidden])) {
+  position: static;
+}
+@media (max-width: 600px) {
+  .hedgeway-chat .chat-welcome {
+    padding: 28px 4px;
+  }
+  .hedgeway-chat .chat-toolbar select {
+    max-width: 160px;
+  }
+  .hedgeway-chat .chat-composer-actions {
+    gap: 2px;
+  }
+  .hedgeway-chat .chat-composer-actions select {
+    max-width: 145px;
+  }
+}

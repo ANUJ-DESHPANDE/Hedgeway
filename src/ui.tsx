@@ -127,10 +127,10 @@ export function Modal({
   const [wide, setWide] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.matchMedia("(min-width: 1100px)").matches,
+      window.matchMedia("(min-width: 1440px)").matches,
   );
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 1100px)");
+    const media = window.matchMedia("(min-width: 1440px)");
     const update = () => setWide(media.matches);
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
@@ -152,7 +152,7 @@ export function Modal({
           'button:not([disabled]),input:not([disabled]):not([type="hidden"]),textarea:not([disabled]),select:not([disabled]),summary,a[href],[tabindex="0"]',
         ) || []),
       ].filter((node) => node.getClientRects().length > 0);
-    nodes()?.[0]?.focus();
+    nodes()?.[0]?.focus({preventScroll:true});
     const handle = (e: KeyboardEvent) => {
       if (
         e.key === "Escape" &&
@@ -177,7 +177,7 @@ export function Modal({
     return () => {
       document.removeEventListener("keydown", handle);
       if (!docked) document.body.style.overflow = previousOverflow;
-      prev?.focus();
+      prev?.focus({preventScroll:true});
     };
   }, [open, docked]);
   return (
@@ -317,8 +317,10 @@ export function QuoteTable({
 export function Story({
   article,
   onSave,
+  onRead,
 }: {
   article: Article;
+  onRead?: (article: Article) => void;
   onSave?: (a: Article) => void;
 }) {
   return (
@@ -332,15 +334,7 @@ export function Story({
         <span>{date(article.publishedAt)}</span>
         <span className="tag">{article.kind}</span>
       </div>
-      <a
-        href={article.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="story-title"
-      >
-        {article.title}
-        <ArrowUpRight size={16} />
-      </a>
+      {onRead ? <button className="story-title story-read-button" onClick={()=>onRead(article)}>{article.title}<ArrowUpRight size={16}/></button> : <a href={article.url} target="_blank" rel="noopener noreferrer" className="story-title">{article.title}<ArrowUpRight size={16}/></a>}
       <p>{article.summary}</p>
       <div className="story-footer">
         <div>

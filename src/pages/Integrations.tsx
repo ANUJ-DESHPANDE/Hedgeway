@@ -1,3 +1,4 @@
+import ChatGPTConnection from "../components/ChatGPTConnection";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -40,6 +41,7 @@ export default function Integrations({
   const isKite = status.marketProvider === "kite";
   return (
     <>
+      <ChatGPTConnection/>
       {status.upstox && !isKite && !isYahoo && (
         <div className="connection-summary">
           <div>

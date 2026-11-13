@@ -217,3 +217,42 @@ it("lists small scan summaries and retrieves only the selected saved evidence", 
   ).toBe(404);
   expect((await get("/scanner/history/not-an-id")).status).toBe(400);
 });
+
+it("restores the saved assistant draft through a new app instance", async () => {
+  const { db, app } = setup();
+  const draft = {
+    question: "Why did my thesis change?",
+    symbol: "INFY",
+    threadId: "existing-thread",
+    approach: "challenge",
+    scan: null,
+  };
+  await request(app)
+    .put("/api/ai/draft")
+    .set("Host", "localhost")
+    .set("Origin", "http://localhost:4100")
+    .send(draft)
+    .expect(200);
+  const restarted = createApp(db, {
+    local: true,
+    password: "",
+    origin: "http://localhost:4100",
+  });
+  expect(
+    (await request(restarted).get("/api/ai/draft").set("Host", "localhost"))
+      .body,
+  ).toEqual(draft);
+});
+it("rejects an unsolicited subscription callback and keeps generation disabled", async () => {
+  const { get } = setup();
+  expect((await get("/chatgpt/callback?state=forged&code=forged")).status).toBe(
+    400,
+  );
+  const status = await get("/chatgpt/status");
+  expect(status.body).toMatchObject({
+    accounts: [],
+    connected: false,
+    inferenceEnabled: false,
+  });
+  expect(JSON.stringify(status.body)).not.toContain("accessToken");
+});

@@ -268,7 +268,7 @@ export function getArticles(
   query = "",
   kind = "",
   saved = false,
-  scope?: { symbol: string; since: string; until: string },
+  scope?: { symbol: string; since: string; until: string; category?: string },
 ): Article[] {
   const terms = query
     .match(/[\p{L}\p{N}]+/gu)
@@ -294,6 +294,15 @@ export function getArticles(
     args.push(kind);
   }
   if (saved) clauses.push("b.article_id IS NOT NULL");
+  if (scope?.category) {
+    const matching = feeds
+      .filter((f) => sourceCategory(f.name, f.kind) === scope.category)
+      .map((f) => f.name);
+    if (matching.length) {
+      clauses.push(`a.source IN (${matching.map(() => "?").join(",")})`);
+      args.push(...matching);
+    } else clauses.push("0");
+  }
   if (scope) {
     clauses.push("a.published_at>=? AND a.published_at<=?");
     args.push(scope.since, scope.until);
@@ -321,6 +330,44 @@ export function getArticles(
     sentiment: a.sentiment,
     saved: !!a.saved,
   }));
+}
+
+/** The unfiltered desk mixes source types so a disclosure burst cannot bury reporting.
+ * Explicit search, source-type filters and bookmarks remain chronological.
+ */
+export function getResearchFeed(
+  db: DB,
+  query = "",
+  kind = "",
+  saved = false,
+): Article[] {
+  if (query.trim() || kind || saved) return getArticles(db, query, kind, saved);
+  const scope = {
+    symbol: "",
+    since: "1970-01-01T00:00:00.000Z",
+    until: new Date().toISOString(),
+  };
+  const reporting = getArticles(db, "", "", false, {
+    ...scope,
+    category: "reporting",
+  });
+  const official = getArticles(db, "", "official", false, scope);
+  const community = getArticles(db, "", "forum", false, scope);
+  const result: Article[] = [];
+  const seen = new Set<string>();
+  while (
+    result.length < 150 &&
+    (reporting.length || official.length || community.length)
+  ) {
+    for (const queue of [reporting, reporting, official, community]) {
+      const item = queue.shift();
+      if (item && !seen.has(item.id) && result.length < 150) {
+        seen.add(item.id);
+        result.push(item);
+      }
+    }
+  }
+  return result;
 }
 
 export function sourceCategory(source: string, kind: string) {

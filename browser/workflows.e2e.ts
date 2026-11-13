@@ -1,33 +1,30 @@
 import { test, expect, type Page } from "@playwright/test";
 async function navigate(page: Page, name: string) {
-  await expect(page.getByRole("navigation")).toBeVisible();
-  const nav = page.getByRole("navigation");
-  if (!["Markets", "Research", "Portfolio"].includes(name))
-    await nav.getByText("More tools").click();
-  const label =
-    name === "Markets"
-      ? "Workspace"
-      : name === "Integrations"
-        ? "Connections & settings"
-        : name;
-  await nav.getByRole("button", { name: label, exact: true }).click();
-  if (name === "Markets")
-    await expect(
-      page.getByRole("complementary", { name: "Watchlist", exact: true }),
-    ).toBeVisible();
-  else
-    await expect(
-      page.getByRole("main").getByRole("heading", { level: 1 }),
-    ).toHaveText(name === "Overview" ? "Your market overview" : name);
+  const nav=page.getByRole('navigation',{name:'Main navigation'});
+  await expect(nav).toBeVisible();
+  const close=page.getByRole('button',{name:'Close dialog',exact:true});
+  if(await close.isVisible())await close.click();
+  if(name==='AI desk'){await page.getByRole('button',{name:'Ask Hedgeway',exact:true}).click();await expect(page.getByRole('dialog',{name:'Ask Hedgeway'})).toBeVisible();return;}
+  if(['Markets','Research','IPOs','Setup scanner'].includes(name)){
+    await nav.getByRole('button',{name:'Explore',exact:true}).click();
+    const label=({'Markets':'Companies','Research':'Stories','IPOs':'IPOs','Setup scanner':'Setups'} as Record<string,string>)[name];
+    await page.getByRole('navigation',{name:'Explore sections'}).getByRole('button',{name:label,exact:true}).click();
+  }else if(name==='Journal'||name==='Strategy lab'){
+    await nav.getByRole('button',{name:'Notebook',exact:true}).click();
+    await page.getByRole('button',{name:name==='Journal'?'Notes & decisions':'Test a hypothesis',exact:true}).click();
+  }else if(name==='Overview'){await page.evaluate(()=>{location.hash='Overview'})}
+  else await nav.getByRole('button',{name:name==='Integrations'?'Connections & settings':name,exact:true}).click();
+  if(name==='Markets')await expect(page.getByRole('complementary',{name:'Watchlist',exact:true})).toBeVisible();
+  else if(!['Today','Notebook'].includes(name))await expect(page.getByRole('main').getByRole('heading',{level:1})).toHaveText(name==='Overview'?'Your market overview':name);
 }
 test("all workspaces render without browser errors or page overflow", async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/");
+  await page.goto("/#Markets");
   await expect(
-    page.getByRole("button", { name: "Workspace", exact: true }),
+    page.getByRole("button", { name: "Explore", exact: true }),
   ).toBeVisible();
   for (const name of [
     "Markets",
@@ -100,18 +97,17 @@ test("modal typing keeps focus through a real stream status update and closes wi
 test("unconnected AI and scanner guide setup without fabricating results", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#Markets");
   await navigate(page, "AI desk");
   await expect(
     page.getByRole("button", { name: "Analyze evidence" }),
   ).toBeDisabled();
-  await page.getByText("Need a starting point? Explore six questions").click();
   await page
-    .getByRole("button", { name: /What are the strongest themes/ })
+    .getByRole("button", { name: /What’s moving the market/ })
     .click();
   await expect(
     page.getByLabel("What would you like to understand?"),
-  ).toHaveValue(/strongest themes/);
+  ).toHaveValue(/moving the market/);
   await navigate(page, "Setup scanner");
   await expect(
     page.getByRole("button", { name: "Check my setup" }),
@@ -173,7 +169,7 @@ test("sourced AI responses expose their evidence and accept follow-up questions"
     route.fulfill({ json: { configured: true, model: "test-fixture" } }),
   );
   await page.route("**/api/ai/ask", (route) => route.fulfill({ json: run }));
-  await page.goto("/");
+  await page.goto("/#Markets");
   await navigate(page, "AI desk");
   await page
     .getByLabel("What would you like to understand?")
@@ -187,9 +183,7 @@ test("sourced AI responses expose their evidence and accept follow-up questions"
   await expect(
     page.getByRole("link", { name: "Open original source" }),
   ).toHaveAttribute("href", "https://example.com/source");
-  await expect(
-    page.getByRole("heading", { name: "Ask a follow-up" }),
-  ).toBeVisible();
+  await expect(page.getByLabel("What would you like to understand?")).toHaveAttribute("placeholder", "Ask a follow-up…");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -250,7 +244,7 @@ test("populated scanner explains its checks, plan and AI handoff", async ({
   await page.route(`**/api/scanner/history/${result.id}`, (route) =>
     route.fulfill({ json: result }),
   );
-  await page.goto("/");
+  await page.goto("/#Markets");
   await navigate(page, "Setup scanner");
   await page.getByRole("button", { name: "Check my setup" }).click();
   await expect(page.getByText("CONDITIONS MET", { exact: true })).toBeVisible();
@@ -307,6 +301,7 @@ test("populated scanner explains its checks, plan and AI handoff", async ({
   await expect(
     page.getByLabel("What would you like to understand?"),
   ).toHaveValue(/saved NSE:INFY/);
+  await page.getByRole("button",{name:/Settings · INFY/}).click();
   await expect(page.getByText(/Pinned scan: NSE:INFY/)).toBeVisible();
   await page.getByRole("button", { name: "Analyze evidence" }).click();
   await expect(page.getByRole("alert")).toContainText("Test request captured");
@@ -317,7 +312,7 @@ test("populated scanner explains its checks, plan and AI handoff", async ({
 test("Explore reaches a page without scrolling through navigation", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#Markets");
   await page
     .getByRole("button", { name: "Quick navigation", exact: true })
     .click();
@@ -370,7 +365,7 @@ test("market candles support exploration, exports and a learning handoff", async
       },
     }),
   );
-  await page.goto("/");
+  await page.goto("/#Markets");
   await navigate(page, "Markets");
   await expect(page.locator(".candle-canvas canvas").first()).toBeVisible();
   await page.getByRole("button", { name: "Line", exact: true }).click();
@@ -389,22 +384,16 @@ test("market candles support exploration, exports and a learning handoff", async
   ).toBe(true);
   await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
   await expect(page.getByLabel("Focus symbol · optional")).toHaveValue("INFY");
-  await expect(
-    page.getByRole("button", { name: /Teach me Plain English/ }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page
-    .getByRole("button", { name: /Challenge my thinking Assumptions/ })
-    .click();
-  await expect(
-    page.getByRole("button", { name: /Challenge my thinking Assumptions/ }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel('Conversation approach')).toHaveValue('learn');
+  await page.getByLabel('Conversation approach').selectOption('challenge');
+  await expect(page.getByLabel('Conversation approach')).toHaveValue('challenge');
   expect(errors).toEqual([]);
 });
 
 test("assistant draft survives closing the chart conversation", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#Markets");
   await page.getByRole("button", { name: "Ask Hedgeway", exact: true }).click();
   const question = page.getByLabel("What would you like to understand?");
   await question.fill("Help me weigh the risk of a rebound before acting");
@@ -428,7 +417,7 @@ test("workspace research follows the selected company and labels market-wide mod
     }),
   );
   await page.route("**/api/research?*", (r) => r.fulfill({ json: [] }));
-  await page.goto("/");
+  await page.goto("/#Markets");
   await expect(
     page.getByText("Research for INFY", { exact: true }),
   ).toBeVisible();
@@ -450,7 +439,7 @@ test("reopening the same company preserves the current AI draft", async ({
   await page.route("**/api/watchlist", (r) =>
     r.fulfill({ json: [{ symbol: "INFY", exchange: "NSE" }] }),
   );
-  await page.goto("/");
+  await page.goto("/#Markets");
   await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
   await page
     .getByLabel("What would you like to understand?")
@@ -502,7 +491,7 @@ test("late AI replies cannot replace a newly selected company's discussion", asy
       },
     });
   });
-  await page.goto("/");
+  await page.goto("/#Markets");
   await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
   await page
     .getByRole("button", { name: "Analyze evidence", exact: true })
@@ -541,7 +530,7 @@ test("desktop assistant leaves the watchlist interactive", async ({
       ],
     }),
   );
-  await page.goto("/");
+  await page.goto("/#Markets");
   await page.getByRole("button", { name: "Ask Hedgeway", exact: true }).click();
   await expect(page.getByRole("dialog")).not.toHaveAttribute(
     "aria-modal",
@@ -564,7 +553,7 @@ test("chart context is restored after opening a saved discussion", async ({
   await page.route("**/api/ai/threads/saved-thread", (r) =>
     r.fulfill({ json: [] }),
   );
-  await page.goto("/");
+  await page.goto("/#Markets");
   await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
   await page.getByLabel("Saved discussions").selectOption("saved-thread");
   await expect(page.getByLabel("Focus symbol · optional")).toHaveValue("");
@@ -596,7 +585,7 @@ test("late saved-discussion loads cannot overwrite chart context", async ({
     await held;
     await r.fulfill({ json: [] });
   });
-  await page.goto("/");
+  await page.goto("/#Markets");
   await page.getByRole("button", { name: "Explain what I’m seeing" }).click();
   await page.getByLabel("Saved discussions").selectOption("saved-thread");
   await requested;
@@ -610,4 +599,12 @@ test("late saved-discussion loads cannot overwrite chart context", async ({
   await expect(page.getByLabel("Focus symbol · optional")).toHaveValue(
     "RELIANCE",
   );
+});
+
+test('Today is the useful default and moves from discovery to a company',async({page})=>{
+ await page.goto('/');await expect(page.getByRole('heading',{name:'Today, in perspective.'})).toBeVisible();
+ await expect(page.getByRole('navigation',{name:'Main navigation'}).getByRole('button',{name:'Today',exact:true})).toHaveAttribute('aria-current','page');
+ await page.getByLabel('Find a company from Today').fill('Infosys');
+ await page.locator('.daily-search-results').getByRole('button').first().click();
+ await expect(page.getByLabel('Chart company')).toHaveValue('NSE:INFY');
 });

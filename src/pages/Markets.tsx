@@ -5,6 +5,7 @@ import { api } from "../api";
 import type { Article, Mode, Quote } from "../types";
 import { Empty, Panel, QuoteTable } from "../ui";
 export default function Markets({
+  initialInstrument,
   quotes,
   articles,
   explore,
@@ -17,9 +18,10 @@ export default function Markets({
   add,
   removeWatch,
 }: {
+  initialInstrument?: string;
   quotes: Quote[];
   articles: Article[];
-  explore: (action: "learn" | "scan" | "news", instrument: string) => void;
+  explore: (action: "learn" | "scan" | "news", instrument: string, chartSnapshotId?: string) => void;
   researchOnly: boolean;
   watch: string[];
   onWatch: (q: Quote) => void;
@@ -29,8 +31,9 @@ export default function Markets({
   add: (s: string, e: string) => Promise<boolean>;
   removeWatch: (id: string) => void;
 }) {
-  const [selected, setSelected] = useState("");
-  const activeInstrument = watch.includes(selected) ? selected : watch[0] || "";
+  const [selected, setSelected] = useState(initialInstrument || "");
+  useEffect(()=>{if(initialInstrument)setSelected(initialInstrument)},[initialInstrument]);
+  const activeInstrument = selected || watch[0] || "";
   const activeSymbol = activeInstrument.split(":")[1] || "";
   const [companyNews, setCompanyNews] = useState<Article[]>([]);
   const [allNews, setAllNews] = useState(false);
@@ -173,7 +176,7 @@ export default function Markets({
           ) : (
             <div className="desk-empty">
               <strong>Start with a company you know</strong>
-              <p>Use + to search and add your first stock.</p>
+              <p>Search by company name to start your watchlist.</p>
             </div>
           )}
           <div className="watchlist-foot">
@@ -200,17 +203,6 @@ export default function Markets({
             <span className="tag">Research</span>
           </div>
           <p className="desk-caption">Context before conviction.</p>
-          <button
-            className="desk-ask"
-            onClick={() => explore("learn", activeInstrument || "NSE:")}
-          >
-            <span>✦</span>
-            <strong>Think it through with AI</strong>
-            <small>
-              Understand the move. Challenge your thesis. Weigh the risk.
-            </small>
-            <b>Start a conversation ↗</b>
-          </button>
           <div className="desk-section-heading">
             <h3>
               {allNews || !activeSymbol
@@ -321,7 +313,7 @@ export default function Markets({
           )}
         </div>
       </details>
-      <details className="desk-details" id="company-finder">
+      <details open className="desk-details" id="company-finder">
         <summary>Add a company to your watchlist</summary>
         <Panel
           title="Find a company to follow"

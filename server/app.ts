@@ -1,4 +1,6 @@
 import express from "express";
+import { chatGPTRoutes } from "./chatgpt.js";
+import { buildRundown } from "./rundown.js";
 import { decisionRoutes } from "./decision-routes.js";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
@@ -29,6 +31,7 @@ import { history, refreshQuotes, marketProvider } from "./providers/market.js";
 import {
   feeds,
   getArticles,
+  getResearchFeed,
   ingestNews,
   researchSources,
   ingestReddit,
@@ -279,6 +282,8 @@ export function createApp(
     options.stream?.start();
     res.json({ ok: true });
   });
+  chatGPTRoutes(app, db, Boolean(options.local));
+  app.get("/api/rundown", (_req, res) => res.json(buildRundown(db)));
   app.get("/api/dashboard", (req, res) => {
     const q = quotes();
     const h = holdings();
@@ -430,7 +435,7 @@ export function createApp(
   app.get("/api/research", (req, res) => {
     const query = String(req.query.q || "").slice(0, 200),
       kind = String(req.query.kind || "");
-    res.json(getArticles(db, query, kind, req.query.saved === "true"));
+    res.json(getResearchFeed(db, query, kind, req.query.saved === "true"));
   });
   app.post("/api/research/refresh", async (_req, res) =>
     res.json(await ingestNews(db)),

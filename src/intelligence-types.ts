@@ -32,6 +32,8 @@ export type AIAnswer = {
   openQuestions: string[];
 };
 export type AIRun = {
+  articleId?: string;
+  chartSnapshotId?: string;
   approach?: "learn" | "research" | "challenge";
   symbol?: string;
   scan?: ScanReference;

@@ -35,6 +35,12 @@ import type { Page } from "./navigation";
 import type { ScanReference } from "./intelligence-types";
 import ImportModal from "./pages/ImportModal";
 import "./styles.css";
+import "./market-desk.css";
+import MarketTicker from "./components/MarketTicker";
+const Today = lazy(() =>
+  import("./pages/Today").then((m) => ({ default: m.Today })),
+);
+const Notebook = lazy(() => import("./pages/Notebook"));
 import type { Article, IPO, Mode, Portfolio, Quote } from "./types";
 import { Modal } from "./ui";
 const AIDesk = lazy(() => import("./pages/AIDesk"));
@@ -49,6 +55,8 @@ const Journal = lazy(() => import("./pages/Journal"));
 const Integrations = lazy(() => import("./pages/Integrations"));
 
 const pages: { name: Page; icon: typeof Wallet; group: string }[] = [
+  { name: "Today", icon: Sun, group: "" },
+  { name: "Notebook", icon: BookOpen, group: "" },
   { name: "Overview", icon: LayoutDashboard, group: "WORKSPACE" },
   { name: "Markets", icon: ChartNoAxesCombined, group: "" },
   { name: "Setup scanner", icon: ScanLine, group: "" },
@@ -61,6 +69,8 @@ const pages: { name: Page; icon: typeof Wallet; group: string }[] = [
   { name: "Integrations", icon: Plug, group: "" },
 ];
 const descriptions: Record<Page, string> = {
+  Today: "Your personal market brief.",
+  Notebook: "Return to your conversations, sources and ideas.",
   Overview: "Your portfolio, market watch and latest research in one place.",
   "AI desk":
     "Discuss the evidence, challenge the story, and see what remains unknown.",
@@ -85,12 +95,15 @@ function App() {
   const [page, setPage] = useState<Page>(
     () =>
       pages.find((p) => p.name === decodeURIComponent(location.hash.slice(1)))
-        ?.name || "Markets",
+        ?.name || "Today",
   );
+  const [requestedThread, setRequestedThread] = useState<string | undefined>();
   const [aiSeed, setAISeed] = useState<{
     question: string;
     symbol: string;
     scan?: ScanReference;
+    chartSnapshotId?: string;
+    articleId?: string;
   } | null>(null);
   const [context, setContext] = useState<{
     symbol: string;
@@ -126,6 +139,9 @@ function App() {
   useEffect(() => {
     if (assistantOpen) setAssistantMounted(true);
   }, [assistantOpen]);
+  useEffect(() => {
+    if (page === "AI desk") setAssistantOpen(true);
+  }, [page]);
   const loadedMode = useRef(mode);
   const show = useCallback(
     (text: string, error = false) => setToast({ text, error }),
@@ -147,12 +163,16 @@ function App() {
     const f = () =>
       setPage(
         pages.find((p) => p.name === decodeURIComponent(location.hash.slice(1)))
-          ?.name || "Markets",
+          ?.name || "Today",
       );
     window.addEventListener("hashchange", f);
     return () => window.removeEventListener("hashchange", f);
   }, []);
   const go = (p: Page) => {
+    if (p === "AI desk") {
+      setAssistantOpen(true);
+      return;
+    }
     location.hash = encodeURIComponent(p);
     setPage(p);
   };
@@ -336,7 +356,7 @@ function App() {
       </a>
       <header className="terminal-header">
         <div className="terminal-top">
-          <a href="#Markets" className="brand" aria-label="Hedgeway workspace">
+          <a href="#Today" className="brand" aria-label="Hedgeway workspace">
             <Logo />
             <span className="brand-word">
               HEDGEWAY<small>YOUR MARKET WORKSPACE</small>
@@ -394,38 +414,32 @@ function App() {
           </div>
         </div>
         <nav className="terminal-nav" aria-label="Main navigation">
-          {pages
-            .filter((p) =>
-              ["Markets", "Research", "Portfolio"].includes(p.name),
-            )
-            .map(({ name, icon: Icon }) => (
-              <button
-                key={name}
-                className={`nav-item ${page === name ? "selected" : ""}`}
-                onClick={() => go(name)}
-                aria-current={page === name ? "page" : undefined}
-              >
-                <Icon size={16} />
-                {name === "Markets" ? "Workspace" : name}
-              </button>
-            ))}
-          <details className="workspace-tools" key={page}>
-            <summary>
-              More tools <span>⌄</span>
-            </summary>
-            <div className="workspace-tools-menu">
-              {pages
-                .filter(
-                  (p) => !["Markets", "Research", "Portfolio"].includes(p.name),
-                )
-                .map(({ name, icon: Icon }) => (
-                  <button key={name} onClick={() => go(name)}>
-                    <Icon size={16} />
-                    {name === "Integrations" ? "Connections & settings" : name}
-                  </button>
-                ))}
-            </div>
-          </details>
+          {(
+            [
+              ["Today", "Today", Sun],
+              ["Markets", "Explore", ChartNoAxesCombined],
+              ["Portfolio", "Portfolio", Wallet],
+              ["Notebook", "Notebook", BookOpen],
+            ] as const
+          ).map(([target, label, Icon]) => (
+            <button
+              key={target}
+              className={`nav-item ${page === target || (target === "Markets" && ["Research", "IPOs", "Setup scanner"].includes(page)) || (target === "Notebook" && ["Journal", "Strategy lab"].includes(page)) ? "selected" : ""}`}
+              aria-current={page === target ? "page" : undefined}
+              onClick={() => go(target)}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+          <button
+            className={`nav-item settings-nav ${page === "Integrations" ? "selected" : ""}`}
+            aria-label="Connections & settings"
+            onClick={() => go("Integrations")}
+          >
+            <Plug size={16} />
+            <span>Settings</span>
+          </button>
           <button
             className="assistant-launch"
             onClick={() => setAssistantOpen(true)}
@@ -435,57 +449,44 @@ function App() {
           </button>
         </nav>
       </header>
-      <div className="market-ribbon" aria-label="Market feed snapshots">
-        <span className="ribbon-label">
-          <span
-            className={`status-dot ${streamStatus?.state === "live" ? "" : "amber"}`}
-          />
-          {streamStatus?.state === "live"
-            ? "LIVE FEED"
-            : data?.quotes.length
-              ? "LAST SNAPSHOTS"
-              : "MARKET FEED"}
-        </span>
-        <div className="ribbon-items">
-          {data?.quotes.length ? (
-            data.quotes.slice(0, 12).map((q) => (
-              <button
-                key={`${q.exchange}:${q.symbol}`}
-                onClick={() => go("Markets")}
-              >
-                <strong>
-                  {q.exchange}:{q.symbol}
-                </strong>
-                <span>₹{q.price.toLocaleString("en-IN")}</span>
-                <span className={q.change >= 0 ? "positive" : "negative"}>
-                  {q.change > 0 ? "+" : ""}
-                  {q.change.toFixed(2)}%
-                </span>
-                <small>
-                  {new Date(q.asOf).toLocaleString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    timeZone: "Asia/Kolkata",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  IST
-                </small>
-              </button>
-            ))
-          ) : (
-            <span className="ribbon-empty">
-              Your market, in real time.
-              <span>Connect Upstox or Kite to bring this strip to life.</span>
-            </span>
-          )}
-        </div>
-      </div>
+      <MarketTicker
+        quotes={data?.quotes || []}
+        onSelect={(q) => {
+          setContext({ symbol: q.symbol, exchange: q.exchange });
+          go("Markets");
+        }}
+      />
+      {["Markets", "Research", "IPOs", "Setup scanner"].includes(page) && (
+        <nav className="explore-nav" aria-label="Explore sections">
+          {(
+            [
+              ["Markets", "Companies"],
+              ["Research", "Stories"],
+              ["IPOs", "IPOs"],
+              ["Setup scanner", "Setups"],
+            ] as const
+          ).map(([target, label]) => (
+            <button
+              key={target}
+              className={page === target ? "active" : ""}
+              aria-current={page === target ? "page" : undefined}
+              onClick={() => {
+                if (target === "Research") setContext(null);
+                go(target);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
       <div
         className={`main-shell ${page === "Overview" ? "overview-shell" : ""} ${page === "Markets" ? "trading-shell" : ""}`}
       >
         <main id="main">
-          <div className="page-heading">
+          <div
+            className={`page-heading ${["Today", "Notebook", "Markets", "AI desk"].includes(page) ? "desk-hidden-heading" : ""}`}
+          >
             <div>
               <div className="eyebrow">YOUR INVESTMENT WORKSPACE</div>
               <h1>{page === "Overview" ? "Your market overview" : page}</h1>
@@ -550,6 +551,30 @@ function App() {
                   <div className="skeleton" aria-label="Loading page" />
                 }
               >
+                {page === "Today" && (
+                  <Today
+                    quotes={data.quotes}
+                    watch={watch}
+                    onSelect={(symbol, exchange) => {
+                      setContext({ symbol, exchange });
+                      go("Markets");
+                    }}
+                    onDiscuss={(question, articleId) => {
+                      setRequestedThread(undefined);
+                      setAISeed({ question, symbol: "", articleId });
+                      setAssistantOpen(true);
+                    }}
+                  />
+                )}
+                {page === "Notebook" && (
+                  <Notebook
+                    go={go}
+                    onThread={(id) => {
+                      setRequestedThread(id);
+                      setAssistantOpen(true);
+                    }}
+                  />
+                )}
                 {page === "Overview" && (
                   <Overview
                     data={data}
@@ -562,15 +587,24 @@ function App() {
                 )}
                 {page === "Markets" && (
                   <Markets
+                    initialInstrument={
+                      context
+                        ? `${context.exchange}:${context.symbol}`
+                        : undefined
+                    }
                     articles={data.articles}
                     researchOnly={status.marketProvider === "yahoo"}
-                    explore={(action, id) => {
+                    explore={(action, id, chartSnapshotId) => {
                       const [exchange, symbol] = id.split(":");
-                      setContext({ symbol, exchange });
+                      setContext(symbol ? { symbol, exchange } : null);
+                      setRequestedThread(undefined);
                       if (action === "learn") {
                         setAISeed({
                           symbol,
-                          question: `Help me understand ${exchange}:${symbol}. Explain what the latest available price and research do and do not tell us. Teach me how to read the candles, volume, prior-bar average and VWAP, and ask what timeframe I’m considering. Do not assume you have the chart candles unless they are in the evidence.`,
+                          chartSnapshotId,
+                          question: symbol
+                            ? `Help me understand ${exchange}:${symbol}. What does the available evidence tell us, and what should I question?`
+                            : "Help me understand the latest market evidence.",
                         });
                         setAssistantOpen(true);
                       } else
@@ -603,9 +637,13 @@ function App() {
                   />
                 )}
                 {page === "AI desk" && (
-                  <div className="ai-fullscreen">
-                    <AIDesk seed={aiSeed} go={go} show={show} />
-                  </div>
+                  <Notebook
+                    go={go}
+                    onThread={(id) => {
+                      setRequestedThread(id);
+                      setAssistantOpen(true);
+                    }}
+                  />
                 )}
                 {page === "Setup scanner" && (
                   <SetupScanner
@@ -626,7 +664,8 @@ function App() {
                         scan,
                         question: `Review this saved ${scan.exchange}:${scan.symbol} dip-and-rebound scan alongside the available news. Explain what supports it, what conflicts with it, whether the information is fresh, and what I should verify before deciding.`,
                       });
-                      go("AI desk");
+                      setRequestedThread(undefined);
+                      setAssistantOpen(true);
                     }}
                   />
                 )}
@@ -643,13 +682,16 @@ function App() {
                 {page === "Research" && (
                   <Research
                     seed={context?.symbol || ""}
-                    learn={(symbol) => {
+                    learn={(symbol, article) => {
                       setAISeed({
                         symbol,
-                        question:
-                          "Help me understand the latest research. Explain the main story in plain language, distinguish reported facts from community opinions, and walk me through what could change the interpretation.",
+                        articleId: article?.id,
+                        question: article
+                          ? `Help me understand this source: ${article.title}. What does it establish, and what remains uncertain?`
+                          : "Help me understand the latest research. What is supported, and what should I question?",
                       });
-                      go("AI desk");
+                      setRequestedThread(undefined);
+                      setAssistantOpen(true);
                     }}
                     redditReady={Boolean(status.reddit)}
                     go={go}
@@ -736,6 +778,7 @@ function App() {
           <div className="workspace-assistant">
             <Suspense fallback={<p>Opening your conversation…</p>}>
               <AIDesk
+                requestedThread={requestedThread}
                 compact
                 seed={aiSeed}
                 go={(p) => {

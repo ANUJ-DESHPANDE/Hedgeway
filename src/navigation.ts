@@ -1,4 +1,6 @@
 export type Page =
+  | "Today"
+  | "Notebook"
   | "Overview"
   | "Markets"
   | "AI desk"

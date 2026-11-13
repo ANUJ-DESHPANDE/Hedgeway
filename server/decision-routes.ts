@@ -1,4 +1,5 @@
 import type express from "express";
+import { saveChartContext } from "./chart-context.js";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -39,12 +40,45 @@ export function decisionRoutes(app: express.Express, db: DB) {
         interval: z.enum(["1", "3", "5", "1d"]).default("5"),
       })
       .parse(req.query);
-    res.json({
+    const data = {
       ...(await chartData(db, v.symbol, v.exchange, v.interval)),
-      symbol: v.symbol,
-      exchange: v.exchange,
-      interval: v.interval,
-    });
+      ...v,
+    };
+    const chartSnapshotId = saveChartContext(db, data);
+    res.json({ ...data, chartSnapshotId });
+  });
+  app.get("/api/ai/draft", (_req, res) => {
+    const saved = row<{ payload: string }>(
+      db,
+      "SELECT payload FROM cache WHERE key='ai-workspace-draft'",
+    );
+    res.json(saved ? JSON.parse(saved.payload) : null);
+  });
+  app.put("/api/ai/draft", (req, res) => {
+    const draft = z
+      .object({
+        articleId: z.string().max(100).optional(),
+        chartSnapshotId: z.string().optional(),
+        question: z.string().max(12000),
+        symbol: z.string().max(30),
+        threadId: z.string().max(100),
+        approach: z.enum(["learn", "research", "challenge"]),
+        scan: z
+          .object({
+            id: z.string(),
+            symbol: z.string(),
+            exchange: z.string(),
+            asOf: z.string().nullable(),
+          })
+          .nullable(),
+      })
+      .parse(req.body);
+    db.prepare("INSERT OR REPLACE INTO cache VALUES(?,?,?)").run(
+      "ai-workspace-draft",
+      JSON.stringify(draft),
+      8640000000000000,
+    );
+    res.json({ ok: true });
   });
   app.get("/api/ai/status", (_req, res) => res.json(aiStatus(db)));
   app.post("/api/ai/credentials", async (req, res) => {
@@ -91,11 +125,16 @@ export function decisionRoutes(app: express.Express, db: DB) {
         .object({
           question: z.string().trim().min(5).max(4000),
           approach: z.enum(["learn", "research", "challenge"]).default("learn"),
-          refreshResearch: z.boolean().default(true),
+          refreshResearch: z.boolean().default(false),
           symbol: z.union([symbol, z.literal("")]).default(""),
           includePortfolio: z.boolean().default(false),
           threadId: z.string().uuid().optional(),
           scanId: z.string().uuid().optional(),
+          articleId: z.string().max(100).optional(),
+          chartSnapshotId: z
+            .string()
+            .regex(/^[a-f0-9]{64}$/)
+            .optional(),
         })
         .parse(req.body);
       res.json(await askAI(db, input));

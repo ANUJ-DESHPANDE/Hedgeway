@@ -6,6 +6,7 @@ import type { Quote } from "../types";
 import PriceChart from "./PriceChart";
 import { Change } from "../ui";
 type Data = {
+  chartSnapshotId?: string;
   bars: IntradayBar[];
   source: string;
   fetchedAt: string;
@@ -23,13 +24,13 @@ export default function MarketChart({
 }: {
   watch: string[];
   quotes: Quote[];
-  explore?: (action: "learn" | "scan" | "news", instrument: string) => void;
+  explore?: (action: "learn" | "scan" | "news", instrument: string, chartSnapshotId?: string) => void;
   researchOnly?: boolean;
   selected?: string;
   onSelect?: (value: string) => void;
 }) {
   const instruments = [
-    ...new Set([...watch, ...quotes.map((q) => `${q.exchange}:${q.symbol}`)]),
+    ...new Set([...(selected ? [selected] : []), ...watch, ...quotes.map((q) => `${q.exchange}:${q.symbol}`)]),
   ];
   const [instrument, setInstrument] = useState(instruments[0] || ""),
     [interval, setIntervalValue] = useState("5"),
@@ -156,7 +157,7 @@ export default function MarketChart({
         </label>
       </div>
       <div className="chart-workflow button-row">
-        <button onClick={() => explore?.("learn", chosen)}>
+        <button onClick={() => explore?.("learn", chosen, matching?.chartSnapshotId)}>
           Explain what I’m seeing
         </button>
         <button onClick={() => explore?.("scan", chosen)}>
